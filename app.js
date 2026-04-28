@@ -91,117 +91,25 @@ const DEFAULT_SCHEDULE = {
 
 const PROGRAM = {
   push: [
-    {
-      name:     'Barbell Bench Press',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Chest',
-      hint:     'Full ROM · retract scapula · slight arch',
-    },
-    {
-      name:     'Incline Dumbbell Press',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Chest',
-      hint:     '30–45° incline · elbows at 45°',
-    },
-    {
-      name:     'Standing Overhead Press',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Shoulders',
-      hint:     'Brace core · squeeze glutes · bar over mid-foot',
-    },
-    {
-      name:     'Side Lateral Raise',
-      sets:     3,
-      reps:     '8–10',
-      category: 'Shoulders',
-      hint:     'Lead with elbows · slight forward lean',
-    },
-    {
-      name:     'Triceps Pressdown / Dips',
-      sets:     3,
-      reps:     '6–10',
-      category: 'Triceps',
-      hint:     'Lock elbows at sides · full extension',
-    },
+    { name:'Barbell Bench Press',     sets:3, reps:'4–6',  category:'Chest',     hint:'Full ROM · retract scapula · slight arch',           rest:180 },
+    { name:'Incline Dumbbell Press',  sets:3, reps:'4–6',  category:'Chest',     hint:'30–45° incline · elbows at 45°',                     rest:180 },
+    { name:'Standing Overhead Press', sets:3, reps:'4–6',  category:'Shoulders', hint:'Brace core · squeeze glutes · bar over mid-foot',    rest:180 },
+    { name:'Side Lateral Raise',      sets:3, reps:'8–10', category:'Shoulders', hint:'Lead with elbows · slight forward lean',             rest:90  },
+    { name:'Triceps Pressdown / Dips',sets:3, reps:'6–10', category:'Triceps',   hint:'Lock elbows at sides · full extension',              rest:90  },
   ],
-
   pull: [
-    {
-      name:     'Deadlift',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Back',
-      hint:     'Push the floor away · bar stays close · neutral spine',
-    },
-    {
-      name:     'Barbell Row',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Back',
-      hint:     'Pull to lower chest · hinge 45° · squeeze at top',
-    },
-    {
-      name:     'Pull-up / Lat Pulldown',
-      sets:     3,
-      reps:     '6–8',
-      category: 'Back',
-      hint:     'Full hang · drive elbows to hips · chest to bar',
-    },
-    {
-      name:     'Seated Cable Row',
-      sets:     3,
-      reps:     '6–8',
-      category: 'Back',
-      hint:     'Retract scapula · keep torso upright',
-    },
-    {
-      name:     'Barbell / Dumbbell Curl',
-      sets:     3,
-      reps:     '6–10',
-      category: 'Biceps',
-      hint:     'Full supination at top · don\'t swing',
-    },
+    { name:'Deadlift',               sets:3, reps:'4–6',  category:'Back',   hint:'Push the floor away · bar stays close · neutral spine', rest:180 },
+    { name:'Barbell Row',            sets:3, reps:'4–6',  category:'Back',   hint:'Pull to lower chest · hinge 45° · squeeze at top',      rest:180 },
+    { name:'Pull-up / Lat Pulldown', sets:3, reps:'6–8',  category:'Back',   hint:'Full hang · drive elbows to hips · chest to bar',       rest:180 },
+    { name:'Seated Cable Row',       sets:3, reps:'6–8',  category:'Back',   hint:'Retract scapula · keep torso upright',                  rest:90  },
+    { name:'Barbell / Dumbbell Curl',sets:3, reps:'6–10', category:'Biceps', hint:'Full supination at top · don\'t swing',                 rest:90  },
   ],
-
   legs: [
-    {
-      name:     'Back Squat',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Legs',
-      hint:     'Drive knees out · chest tall · below parallel',
-    },
-    {
-      name:     'Romanian Deadlift',
-      sets:     3,
-      reps:     '4–6',
-      category: 'Legs',
-      hint:     'Push hips back · soft knee · feel the hamstring stretch',
-    },
-    {
-      name:     'Leg Press',
-      sets:     3,
-      reps:     '6–10',
-      category: 'Legs',
-      hint:     'Feet shoulder-width · full depth · don\'t lock knees',
-    },
-    {
-      name:     'Calf Raise',
-      sets:     4,
-      reps:     '8–12',
-      category: 'Legs',
-      hint:     'Full stretch at bottom · pause at top',
-    },
-    {
-      name:     'Weighted Cable Crunch',
-      sets:     3,
-      reps:     '8–12',
-      category: 'Core',
-      hint:     'Round the spine fully · control the descent',
-    },
+    { name:'Back Squat',            sets:3, reps:'4–6',  category:'Legs', hint:'Drive knees out · chest tall · below parallel',            rest:180 },
+    { name:'Romanian Deadlift',     sets:3, reps:'4–6',  category:'Legs', hint:'Push hips back · soft knee · feel the hamstring stretch',  rest:180 },
+    { name:'Leg Press',             sets:3, reps:'6–10', category:'Legs', hint:'Feet shoulder-width · full depth · don\'t lock knees',     rest:90  },
+    { name:'Calf Raise',            sets:4, reps:'8–12', category:'Legs', hint:'Full stretch at bottom · pause at top',                   rest:90  },
+    { name:'Weighted Cable Crunch', sets:3, reps:'8–12', category:'Core', hint:'Round the spine fully · control the descent',             rest:90  },
   ],
 };
 
@@ -251,9 +159,10 @@ const Store = {
     LOGS:        'moab_day_logs',
     ASSIGNMENTS: 'moab_assignments',
     UNIT:        'moab_unit',
-    RUN_GOAL:    'moab_run_goal',
-    RUN_CURRENT: 'moab_run_current',
-    RUN_LOGS:    'moab_run_logs',
+    RUN_GOAL:      'moab_run_goal',
+    RUN_CURRENT:   'moab_run_current',
+    RUN_LOGS:      'moab_run_logs',
+    STRENGTH_LOGS: 'moab_strength_logs',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -342,6 +251,30 @@ const Store = {
     const l = this.getRunLogs();
     delete l[ds];
     this._set(this.KEYS.RUN_LOGS, l);
+  },
+
+  // ---- Strength session logs ----
+  getStrengthLogs()        { return this._get(this.KEYS.STRENGTH_LOGS) || {}; },
+  getStrengthLog(ds)       { return this.getStrengthLogs()[ds] || null; },
+  setStrengthLog(ds, data) {
+    const l = this.getStrengthLogs();
+    l[ds] = data;
+    this._set(this.KEYS.STRENGTH_LOGS, l);
+  },
+
+  // Return { weight, reps } from the most recent completed set for this exercise name
+  getLastSetForExercise(name) {
+    const logs  = this.getStrengthLogs();
+    let best = null, bestDs = '';
+    for (const [ds, log] of Object.entries(logs)) {
+      if (ds < bestDs) continue;
+      const ex      = (log.exercises || []).find(e => e.name === name);
+      const doneSet = ex ? (ex.sets || []).find(s => s.done && s.weight) : null;
+      if (!doneSet) continue;
+      best   = { weight: doneSet.weight, reps: doneSet.reps };
+      bestDs = ds;
+    }
+    return best;
   },
 
   clearAll() {
@@ -502,16 +435,50 @@ function getRunWorkout(wktKey, programWeek) {
 }
 
 // ============================================================
+//  REST TIMER
+// ============================================================
+
+function startRestTimer(seconds) {
+  clearRestTimer();
+  timerRemaining = seconds;
+  const strip = $id('rest-timer');
+  if (!strip) return;
+  strip.classList.remove('timer-hidden');
+  renderTimerCount();
+  timerInterval = setInterval(() => {
+    timerRemaining = Math.max(0, timerRemaining - 1);
+    renderTimerCount();
+    if (timerRemaining === 0) clearRestTimer();
+  }, 1000);
+}
+
+function clearRestTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  timerRemaining = 0;
+  const strip = $id('rest-timer');
+  if (strip) strip.classList.add('timer-hidden');
+}
+
+function renderTimerCount() {
+  const el = $id('timer-count');
+  if (el) el.textContent = formatMmSs(timerRemaining);
+}
+
+// ============================================================
 //  APP STATE
 // ============================================================
 
 const state = {
   view:          'today',
   schedWeekOff:  0,
-  modalPage:     null,  // 'action' | 'move' | 'swap'
+  modalPage:     null,
   modalDateStr:  null,
   resetConfirm:  false,
+  loggerDs:      null,
 };
+
+let timerInterval  = null;
+let timerRemaining = 0;
 
 // ============================================================
 //  DOM HELPERS
@@ -732,12 +699,14 @@ function buildPaceTargets(wktKey, runWkt, goalStr) {
 }
 
 function buildDoneState(ds, wkt, log) {
-  const time   = log?.completedAt
+  const time       = log?.completedAt
     ? new Date(log.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '';
-  const isRun  = wkt.key === 'run_a' || wkt.key === 'run_b';
-  const runLog = isRun ? Store.getRunLog(ds) : null;
-  const next   = findNextWorkout(today());
+  const isRun      = wkt.key === 'run_a' || wkt.key === 'run_b';
+  const isStrength = wkt.key === 'push' || wkt.key === 'pull' || wkt.key === 'legs';
+  const runLog     = isRun      ? Store.getRunLog(ds)      : null;
+  const strLog     = isStrength ? Store.getStrengthLog(ds) : null;
+  const next       = findNextWorkout(today());
 
   const runSummary = runLog ? `
     <div class="run-log-summary">
@@ -749,6 +718,23 @@ function buildDoneState(ds, wkt, log) {
     </div>
   ` : '';
 
+  const strSummary = strLog ? `
+    <div class="strength-log-summary">
+      ${(strLog.exercises || []).map(ex => {
+        const doneSets = (ex.sets || []).filter(s => s.done && (s.weight || s.reps));
+        if (!doneSets.length) return '';
+        const setsStr = doneSets.map(s => `${s.weight || '—'}×${s.reps || '—'}`).join(' · ');
+        return `
+          <div class="sls-row">
+            <span class="sls-name">${ex.name}</span>
+            <span class="sls-sets">${setsStr}</span>
+          </div>
+          ${ex.notes ? `<div class="sls-notes">${ex.notes}</div>` : ''}
+        `;
+      }).filter(Boolean).join('')}
+    </div>
+  ` : '';
+
   return `
     <div class="done-banner">
       <div class="done-icon">✅</div>
@@ -756,6 +742,7 @@ function buildDoneState(ds, wkt, log) {
       <div class="done-sub">${time ? `Finished at ${time}` : 'Completed today'}</div>
     </div>
     ${runSummary}
+    ${strSummary}
     ${nextCard(next)}
     <div class="btn-row mt-16">
       <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
@@ -825,6 +812,109 @@ function nextCard(next) {
       <div class="next-sub">${next.label} · ${next.wkt.sub}</div>
     </div>
   `;
+}
+
+// ============================================================
+//  VIEW: STRENGTH LOGGER
+// ============================================================
+
+function renderStrengthLogger(ds, wkt) {
+  clearRestTimer();
+  state.view     = 'strength-logger';
+  state.loggerDs = ds;
+
+  setTitle(wkt.name);
+  showBack(true);
+  showNav(false);
+
+  const unit      = Store.getUnit();
+  const exercises = PROGRAM[wkt.key] || [];
+
+  const exCards = exercises.map((ex, i) => {
+    const last   = Store.getLastSetForExercise(ex.name);
+    const catCls = CATEGORY_CLASS[ex.category] || 'legs';
+    const lastLbl = last
+      ? `Last: ${last.weight} ${unit} × ${last.reps}`
+      : 'No previous data';
+
+    const setRows = Array.from({ length: ex.sets }, (_, j) => `
+      <div class="logger-set-row" id="set-${i}-${j}">
+        <span class="set-num">${j + 1}</span>
+        <input type="number" class="set-weight" id="w-${i}-${j}"
+               placeholder="${last?.weight || ''}" inputmode="decimal" min="0">
+        <span class="set-unit">${unit}</span>
+        <input type="number" class="set-reps" id="r-${i}-${j}"
+               placeholder="${last?.reps || ''}" inputmode="numeric" min="0" max="99">
+        <span class="set-reps-lbl">reps</span>
+        <button class="set-done-btn" data-action="mark-set"
+                data-ex="${i}" data-set="${j}" data-rest="${ex.rest}">○</button>
+      </div>
+    `).join('');
+
+    return `
+      <div class="logger-exercise">
+        <div class="logger-ex-header">
+          <div class="logger-ex-left">
+            <span class="cat-chip ${catCls}">${ex.category}</span>
+            <span class="logger-ex-name">${ex.name}</span>
+          </div>
+          <span class="logger-ex-target">${ex.sets}×${ex.reps}</span>
+        </div>
+        <div class="logger-ex-hint">${ex.hint}</div>
+        <div class="logger-ex-last">${lastLbl}</div>
+        <div class="logger-sets">${setRows}</div>
+        <textarea class="form-input form-textarea logger-notes" id="notes-${i}"
+                  placeholder="Notes…"></textarea>
+      </div>
+    `;
+  }).join('');
+
+  setView(`
+    <div class="logger-wrap">
+      <div class="rest-timer timer-hidden" id="rest-timer">
+        <div class="rest-timer-inner">
+          <span class="rest-timer-label">Rest</span>
+          <span class="rest-timer-count" id="timer-count">3:00</span>
+          <button class="rest-timer-skip btn-unstyled" data-action="skip-timer">Skip</button>
+        </div>
+      </div>
+      <div class="logger-body pad">
+        ${exCards}
+        <button class="btn btn-primary mt-20 mb-safe"
+                data-action="finish-workout" data-date="${ds}">
+          Finish Workout
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function finishStrengthWorkout(ds) {
+  const wkt       = Store.getWorkoutInfo(ds);
+  const exercises = PROGRAM[wkt.key] || [];
+  const unit      = Store.getUnit();
+
+  const exData = exercises.map((ex, i) => ({
+    name:     ex.name,
+    category: ex.category,
+    notes:    $id(`notes-${i}`)?.value.trim() || '',
+    sets: Array.from({ length: ex.sets }, (_, j) => ({
+      weight: $id(`w-${i}-${j}`)?.value.trim() || '',
+      reps:   $id(`r-${i}-${j}`)?.value.trim() || '',
+      done:   $id(`set-${i}-${j}`)?.classList.contains('set-done') || false,
+    })),
+  }));
+
+  Store.setStrengthLog(ds, {
+    wktKey:      wkt.key,
+    wktName:     wkt.name,
+    unit,
+    completedAt: new Date().toISOString(),
+    exercises:   exData,
+  });
+
+  completeDay(ds);
+  navigate('today');
 }
 
 // ============================================================
@@ -1430,7 +1520,9 @@ function openRunLogModal(ds) {
 
 function navigate(view) {
   state.view         = view;
+  state.loggerDs     = null;
   state.resetConfirm = false;
+  clearRestTimer();
   hideModal();
   switch (view) {
     case 'today':    renderToday();    break;
@@ -1465,7 +1557,10 @@ document.addEventListener('click', e => {
     case 'do-start': {
       const ds  = el.dataset.date;
       const wkt = Store.getWorkoutInfo(ds);
-      if (wkt.key === 'run_a' || wkt.key === 'run_b') {
+      if (wkt.key === 'push' || wkt.key === 'pull' || wkt.key === 'legs') {
+        hideModal();
+        renderStrengthLogger(ds, wkt);
+      } else if (wkt.key === 'run_a' || wkt.key === 'run_b') {
         openRunLogModal(ds);
       } else {
         completeDay(ds);
@@ -1569,6 +1664,38 @@ document.addEventListener('click', e => {
     case 'set-unit': {
       Store.setUnit(el.dataset.unit);
       renderSettings();
+      break;
+    }
+
+    // ── Back button ────────────────────────────────────────
+
+    case 'back': {
+      navigate('today');
+      break;
+    }
+
+    // ── Strength logger ────────────────────────────────────
+
+    case 'mark-set': {
+      const exIdx  = parseInt(el.dataset.ex,   10);
+      const setIdx = parseInt(el.dataset.set,  10);
+      const rest   = parseInt(el.dataset.rest, 10) || 90;
+      const row    = $id(`set-${exIdx}-${setIdx}`);
+      if (!row) break;
+      const isDone = row.classList.toggle('set-done');
+      el.textContent = isDone ? '✓' : '○';
+      if (isDone) startRestTimer(rest);
+      else        clearRestTimer();
+      break;
+    }
+
+    case 'finish-workout': {
+      finishStrengthWorkout(el.dataset.date);
+      break;
+    }
+
+    case 'skip-timer': {
+      clearRestTimer();
       break;
     }
 
