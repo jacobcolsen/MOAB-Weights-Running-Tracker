@@ -83,32 +83,138 @@ const DEFAULT_SCHEDULE = {
 //  WORKOUT LIBRARY (Workouts tab)
 // ============================================================
 
-const WORKOUT_LIBRARY = [
-  {
-    key:       'push',
-    exercises: ['Bench Press', 'Overhead Press', 'Incline DB Press', 'Lateral Raise', 'Tricep Pushdown'],
-  },
-  {
-    key:       'pull',
-    exercises: ['Deadlift', 'Barbell Row', 'Pull-up', 'Face Pull', 'Bicep Curl'],
-  },
-  {
-    key:       'legs',
-    exercises: ['Back Squat', 'Romanian Deadlift', 'Leg Press', 'Walking Lunge', 'Calf Raise'],
-  },
-  {
-    key:       'run_a',
-    exercises: ['Warm-up 5min', '6–12 × 400m Intervals', 'Hard Effort — RPE 8–9', 'Walk/Jog Rest', 'Cool-down 5min'],
-  },
-  {
-    key:       'run_b',
-    exercises: ['Warm-up 5min', 'Tempo Run 20–30min', 'Comfortable-Hard — RPE 7', 'Strides × 4', 'Cool-down 5min'],
-  },
-  {
-    key:       'optional',
-    exercises: ['Hip Flexor Stretch', 'Thoracic Rotation', 'Foam Rolling', 'Light Walk', 'Yoga Flow'],
-  },
-];
+// ============================================================
+//  PROGRAM — Strength Templates  (Phase 3)
+//  Each entry: { name, sets, reps, category, hint }
+//  category drives the coloured chip; reps is a display string.
+// ============================================================
+
+const PROGRAM = {
+  push: [
+    {
+      name:     'Barbell Bench Press',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Chest',
+      hint:     'Full ROM · retract scapula · slight arch',
+    },
+    {
+      name:     'Incline Dumbbell Press',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Chest',
+      hint:     '30–45° incline · elbows at 45°',
+    },
+    {
+      name:     'Standing Overhead Press',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Shoulders',
+      hint:     'Brace core · squeeze glutes · bar over mid-foot',
+    },
+    {
+      name:     'Side Lateral Raise',
+      sets:     3,
+      reps:     '8–10',
+      category: 'Shoulders',
+      hint:     'Lead with elbows · slight forward lean',
+    },
+    {
+      name:     'Triceps Pressdown / Dips',
+      sets:     3,
+      reps:     '6–10',
+      category: 'Triceps',
+      hint:     'Lock elbows at sides · full extension',
+    },
+  ],
+
+  pull: [
+    {
+      name:     'Deadlift',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Back',
+      hint:     'Push the floor away · bar stays close · neutral spine',
+    },
+    {
+      name:     'Barbell Row',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Back',
+      hint:     'Pull to lower chest · hinge 45° · squeeze at top',
+    },
+    {
+      name:     'Pull-up / Lat Pulldown',
+      sets:     3,
+      reps:     '6–8',
+      category: 'Back',
+      hint:     'Full hang · drive elbows to hips · chest to bar',
+    },
+    {
+      name:     'Seated Cable Row',
+      sets:     3,
+      reps:     '6–8',
+      category: 'Back',
+      hint:     'Retract scapula · keep torso upright',
+    },
+    {
+      name:     'Barbell / Dumbbell Curl',
+      sets:     3,
+      reps:     '6–10',
+      category: 'Biceps',
+      hint:     'Full supination at top · don\'t swing',
+    },
+  ],
+
+  legs: [
+    {
+      name:     'Back Squat',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Legs',
+      hint:     'Drive knees out · chest tall · below parallel',
+    },
+    {
+      name:     'Romanian Deadlift',
+      sets:     3,
+      reps:     '4–6',
+      category: 'Legs',
+      hint:     'Push hips back · soft knee · feel the hamstring stretch',
+    },
+    {
+      name:     'Leg Press',
+      sets:     3,
+      reps:     '6–10',
+      category: 'Legs',
+      hint:     'Feet shoulder-width · full depth · don\'t lock knees',
+    },
+    {
+      name:     'Calf Raise',
+      sets:     4,
+      reps:     '8–12',
+      category: 'Legs',
+      hint:     'Full stretch at bottom · pause at top',
+    },
+    {
+      name:     'Weighted Cable Crunch',
+      sets:     3,
+      reps:     '8–12',
+      category: 'Core',
+      hint:     'Round the spine fully · control the descent',
+    },
+  ],
+};
+
+// Map category string → CSS class key
+const CATEGORY_CLASS = {
+  Chest:     'chest',
+  Shoulders: 'shoulders',
+  Triceps:   'triceps',
+  Back:      'back',
+  Biceps:    'biceps',
+  Legs:      'legs',
+  Core:      'core',
+};
 
 // ============================================================
 //  STORAGE
@@ -437,12 +543,32 @@ function renderToday() {
 }
 
 function buildActiveWorkout(ds, wkt) {
+  const exercises = PROGRAM[wkt.key];
+  const exSection = exercises ? `
+    <div class="today-ex-list">
+      ${exercises.map(e => {
+        const cls = CATEGORY_CLASS[e.category] || 'legs';
+        return `
+          <div class="wkt-ex-row">
+            <div class="ex-row-left">
+              <span class="cat-chip ${cls}">${e.category}</span>
+              <span class="ex-name">${e.name}</span>
+            </div>
+            <div class="ex-vol">${e.sets}×${e.reps}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  ` : '';
+
   return `
     <div class="workout-card ${wkt.color}">
       <div class="type-pill ${wkt.color}">${wkt.emoji}&nbsp; ${labelForType(wkt.key)}</div>
       <div class="workout-card-title">${wkt.name}</div>
       <div class="workout-card-sub">${wkt.sub}</div>
     </div>
+
+    ${exSection}
 
     <button class="btn btn-primary" data-action="do-start" data-date="${ds}">
       Start Workout
@@ -640,28 +766,55 @@ function renderWorkouts() {
   showNav(true);
   setActiveNav('workouts');
 
-  const cards = WORKOUT_LIBRARY.map(entry => {
-    const wkt = WORKOUT_TYPES[entry.key];
+  function exRows(exercises) {
+    return exercises.map(e => {
+      const cls = CATEGORY_CLASS[e.category] || 'legs';
+      return `
+        <div class="wkt-ex-row">
+          <div class="ex-row-left">
+            <span class="cat-chip ${cls}">${e.category}</span>
+            <span class="ex-name">${e.name}</span>
+          </div>
+          <div class="ex-vol">${e.sets}×${e.reps}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const strengthCards = ['push', 'pull', 'legs'].map(key => {
+    const wkt = WORKOUT_TYPES[key];
     return `
       <div class="workout-library-card ${wkt.color}">
-        <div class="type-pill ${wkt.color}" style="margin-bottom:10px;">
-          ${wkt.emoji}&nbsp; ${labelForType(wkt.key)}
+        <div class="wlc-header">
+          <div class="type-pill ${wkt.color}">${wkt.emoji}&nbsp; ${labelForType(key)}</div>
+          <div class="wlc-day">${wkt.day}</div>
         </div>
         <div class="wl-title">${wkt.name}</div>
-        <div class="wl-sub">${wkt.day} &nbsp;·&nbsp; ${wkt.sub}</div>
-        <div class="exercise-list mt-12">
-          ${entry.exercises.map(e => `<span class="exercise-chip">${e}</span>`).join('')}
-        </div>
+        <div class="wl-sub">${wkt.sub}</div>
+        <div class="ex-list mt-12">${exRows(PROGRAM[key])}</div>
       </div>
     `;
   }).join('');
 
+  const runCard = `
+    <div class="workout-library-card run">
+      <div class="wlc-header">
+        <div class="type-pill run">🏃&nbsp; Run</div>
+        <div class="wlc-day">Tue &amp; Thu</div>
+      </div>
+      <div class="wl-title">Run Training</div>
+      <div class="wl-sub">12-week 2-mile improvement plan</div>
+      <div class="run-note mt-12">
+        <div class="run-note-row"><span class="run-day-label">Tuesday</span> Speed · Intervals · Lactate threshold</div>
+        <div class="run-note-row"><span class="run-day-label">Thursday</span> Tempo · Aerobic base · Easy miles</div>
+      </div>
+    </div>
+  `;
+
   setView(`
     <div class="pad fade-up pb-safe">
-      <p class="text-muted text-sm mb-16" style="line-height:1.6;">
-        Your full 5-day program. Exercise details and in-workout logging come in Phase 3.
-      </p>
-      ${cards}
+      ${strengthCards}
+      ${runCard}
     </div>
   `);
 }
