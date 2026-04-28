@@ -1,7 +1,9 @@
-/* =====================================================
-   MOAB — Dark Mode Mobile App Styles
-   ===================================================== */
+/* ============================================================
+   MOAB Weight Training — Phase 1
+   Mobile-first · Dark mode · iPhone-optimized
+   ============================================================ */
 
+/* ---------- Reset & base ---------- */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -15,44 +17,78 @@ html {
 }
 
 body {
-  background: #0d0d0d;
+  background: #0a0a0a;
   color: #f0f0f0;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  user-select: none;
 }
 
-/* =================== APP SHELL =================== */
+/* ---------- Workout type colour tokens ---------- */
+:root {
+  --push-fg:     #fb923c;
+  --push-bg:     #3a1a07;
+  --push-border: #7c3512;
 
+  --pull-fg:     #60a5fa;
+  --pull-bg:     #0e2240;
+  --pull-border: #1e4080;
+
+  --legs-fg:     #4ade80;
+  --legs-bg:     #0d2a18;
+  --legs-border: #166534;
+
+  --run-fg:      #f43f5e;
+  --run-bg:      #3b0a16;
+  --run-border:  #9f1239;
+
+  --optional-fg:  #c084fc;
+  --optional-bg:  #2d1052;
+  --optional-border: #6b21a8;
+
+  --rest-fg:     #9ca3af;
+  --rest-bg:     #1a1a1a;
+  --rest-border: #2a2a2a;
+
+  --accent:      #e05c23;
+  --success:     #4ade80;
+  --success-bg:  #0d2a18;
+  --danger:      #f87171;
+  --warning:     #fbbf24;
+}
+
+/* ---------- App shell ---------- */
 #app {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   max-width: 430px;
   margin: 0 auto;
+  background: #0a0a0a;
   position: relative;
-  background: #0d0d0d;
 }
 
+/* ---------- Top bar ---------- */
 #top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
-  padding: 0 8px 0 4px;
-  background: #0d0d0d;
-  border-bottom: 1px solid #1e1e1e;
+  height: 52px;
+  padding: 0 6px 0 2px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1c1c1c;
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
 #header-title {
   font-size: 17px;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #f0f0f0;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: #f0f0f0;
 }
 
 .back-btn {
@@ -63,34 +99,34 @@ body {
   justify-content: center;
   background: none;
   border: none;
-  color: #e05c23;
+  color: var(--accent);
   cursor: pointer;
   border-radius: 10px;
-  transition: background 0.1s;
 }
-
-.back-btn:active { background: #1a1a1a; }
 .back-btn svg { width: 26px; height: 26px; }
 .back-btn.hidden { visibility: hidden; pointer-events: none; }
+.back-btn:active { background: #1a1a1a; }
 
-.header-spacer { width: 44px; }
+.header-right { width: 44px; }
 
+/* ---------- Main scroll area ---------- */
 #view {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: none;
+  position: relative;
 }
 
-/* =================== BOTTOM NAV =================== */
-
+/* ---------- Bottom nav (5 tabs) ---------- */
 #bottom-nav {
   display: flex;
-  height: calc(64px + env(safe-area-inset-bottom));
+  height: calc(60px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: #111;
-  border-top: 1px solid #1e1e1e;
+  background: #0f0f0f;
+  border-top: 1px solid #1c1c1c;
   flex-shrink: 0;
+  z-index: 20;
 }
 
 .nav-btn {
@@ -99,42 +135,119 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   border: none;
-  color: #555;
+  color: #4a4a4a;
   cursor: pointer;
-  padding: 8px 4px;
+  padding: 6px 2px;
   transition: color 0.15s;
+  min-width: 0;
 }
 
-.nav-btn svg { width: 22px; height: 22px; }
-.nav-btn span { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; }
-.nav-btn.active { color: #e05c23; }
+.nav-btn svg  { width: 20px; height: 20px; flex-shrink: 0; }
+.nav-btn span { font-size: 9.5px; font-weight: 600; letter-spacing: 0.03em; }
+.nav-btn.active { color: var(--accent); }
 
-/* =================== LAYOUT HELPERS =================== */
+/* ---------- Layout helpers ---------- */
+.pad   { padding: 16px 16px 24px; }
+.pad-t { padding-top: 16px; }
 
-.view-pad {
-  padding: 16px 16px 24px;
+/* ---------- Typography ---------- */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #666;
 }
 
-.pb-nav { padding-bottom: 20px; }
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 20px 0 8px 2px;
+}
 
-/* =================== CARDS =================== */
-
+/* ---------- Cards ---------- */
 .card {
-  background: #1a1a1a;
+  background: #161616;
   border-radius: 18px;
+  border: 1px solid #222;
   padding: 20px;
   margin-bottom: 12px;
 }
 
-.card-border {
-  border: 1px solid #2a2a2a;
+.card-sm {
+  background: #161616;
+  border-radius: 14px;
+  border: 1px solid #222;
+  padding: 14px 16px;
+  margin-bottom: 8px;
 }
 
-/* =================== BUTTONS =================== */
+/* ---------- Workout type pill ---------- */
+.type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
 
+.type-pill.push     { background: var(--push-bg);     color: var(--push-fg);     border: 1px solid var(--push-border); }
+.type-pill.pull     { background: var(--pull-bg);     color: var(--pull-fg);     border: 1px solid var(--pull-border); }
+.type-pill.legs     { background: var(--legs-bg);     color: var(--legs-fg);     border: 1px solid var(--legs-border); }
+.type-pill.run      { background: var(--run-bg);      color: var(--run-fg);      border: 1px solid var(--run-border); }
+.type-pill.optional { background: var(--optional-bg); color: var(--optional-fg); border: 1px solid var(--optional-border); }
+.type-pill.rest     { background: var(--rest-bg);     color: var(--rest-fg);     border: 1px solid var(--rest-border); }
+
+/* ---------- Big workout card (Today) ---------- */
+.workout-card {
+  border-radius: 20px;
+  padding: 24px 20px 22px;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.workout-card.push     { background: var(--push-bg);     border-color: var(--push-border); }
+.workout-card.pull     { background: var(--pull-bg);     border-color: var(--pull-border); }
+.workout-card.legs     { background: var(--legs-bg);     border-color: var(--legs-border); }
+.workout-card.run      { background: var(--run-bg);      border-color: var(--run-border); }
+.workout-card.optional { background: var(--optional-bg); border-color: var(--optional-border); }
+.workout-card.rest     { background: #161616;            border-color: #222; }
+
+.workout-card-title {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 5px;
+}
+
+.workout-card-sub {
+  font-size: 14px;
+  opacity: 0.7;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.workout-card.push .workout-card-title     { color: var(--push-fg); }
+.workout-card.pull .workout-card-title     { color: var(--pull-fg); }
+.workout-card.legs .workout-card-title     { color: var(--legs-fg); }
+.workout-card.run  .workout-card-title     { color: var(--run-fg); }
+.workout-card.optional .workout-card-title { color: var(--optional-fg); }
+.workout-card.rest .workout-card-title     { color: #9ca3af; }
+
+.workout-card-sub { color: #ccc; }
+
+/* ---------- Buttons ---------- */
 .btn {
   width: 100%;
   height: 56px;
@@ -143,454 +256,120 @@ body {
   font-size: 17px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.1s, transform 0.1s;
-  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  letter-spacing: 0.01em;
+  transition: opacity 0.1s, transform 0.08s;
 }
 
-.btn:active { opacity: 0.85; transform: scale(0.98); }
+.btn:active { opacity: 0.82; transform: scale(0.975); }
 
-.btn-primary { background: #e05c23; color: #fff; }
-.btn-secondary { background: #252525; color: #f0f0f0; }
-.btn-ghost { background: transparent; color: #e05c23; border: 2px solid #e05c23; }
-.btn-success { background: #14532d; color: #4ade80; }
-.btn-danger { background: #3b0000; color: #f87171; border: none; }
-.btn-run { background: #1e3a5f; color: #60a5fa; }
+.btn-primary   { background: var(--accent);  color: #fff; }
+.btn-secondary { background: #1e1e1e;        color: #f0f0f0; border: 1px solid #2a2a2a; }
+.btn-success   { background: #14532d;        color: var(--success); }
+.btn-danger    { background: #3b0f0f;        color: var(--danger); border: none; }
+.btn-ghost     { background: transparent;   color: var(--accent); border: 2px solid var(--accent); }
 
-.btn-sm {
-  height: 48px;
-  font-size: 15px;
-  border-radius: 12px;
+/* Coloured start buttons */
+.btn-push     { background: var(--push-bg);     color: var(--push-fg);     border: 1px solid var(--push-border); }
+.btn-pull     { background: var(--pull-bg);     color: var(--pull-fg);     border: 1px solid var(--pull-border); }
+.btn-legs     { background: var(--legs-bg);     color: var(--legs-fg);     border: 1px solid var(--legs-border); }
+.btn-run      { background: var(--run-bg);      color: var(--run-fg);      border: 1px solid var(--run-border); }
+.btn-optional { background: var(--optional-bg); color: var(--optional-fg); border: 1px solid var(--optional-border); }
+
+.btn-sm { height: 48px; font-size: 15px; border-radius: 12px; }
+.btn-xs { height: 40px; font-size: 13px; border-radius: 10px; font-weight: 600; }
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-/* =================== TODAY VIEW =================== */
+.btn-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
 
+/* ---------- Today header ---------- */
 .today-header {
   text-align: center;
-  padding: 24px 16px 16px;
+  padding: 22px 16px 18px;
 }
 
-.today-day {
-  font-size: 12px;
-  color: #888;
+.today-dayname {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-weight: 600;
+  color: #666;
 }
 
-.today-date-num {
-  font-size: 56px;
+.today-datenum {
+  font-size: 64px;
   font-weight: 900;
   line-height: 1;
   color: #f0f0f0;
-  margin: 4px 0;
+  margin: 2px 0 2px;
 }
 
-.today-month {
-  font-size: 18px;
-  color: #888;
+.today-monthyear {
+  font-size: 16px;
+  color: #777;
   font-weight: 500;
 }
 
-.today-week-badge {
-  display: inline-block;
-  margin-top: 10px;
-  padding: 4px 14px;
-  background: #1a1a1a;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #e05c23;
-  letter-spacing: 0.05em;
-}
-
-/* =================== WORKOUT TYPE BADGES =================== */
-
-.type-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 12px;
-  border-radius: 100px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 12px;
-}
-
-.type-badge.weights { background: #2a1506; color: #fb923c; }
-.type-badge.run { background: #0f1e36; color: #60a5fa; }
-.type-badge.rest { background: #1a1a1a; color: #555; }
-
-/* Run type sub-badges */
-.run-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 100px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-
-.run-badge.intervals { background: #1e3a5f; color: #60a5fa; }
-.run-badge.threshold { background: #2d1e4a; color: #c084fc; }
-.run-badge.tempo { background: #3b1f5e; color: #c084fc; }
-.run-badge.easy { background: #1f3a2e; color: #4ade80; }
-.run-badge.race-pace { background: #3b2814; color: #fb923c; }
-.run-badge.time-trial { background: #3b0f0f; color: #f87171; }
-
-/* =================== WORKOUT CARD (TODAY) =================== */
-
-.workout-title {
-  font-size: 26px;
-  font-weight: 800;
-  color: #f0f0f0;
-  line-height: 1.1;
-  margin-bottom: 4px;
-}
-
-.workout-focus {
-  font-size: 15px;
-  color: #aaa;
-  margin-bottom: 20px;
-  font-weight: 400;
-}
-
-/* =================== PROGRESS BAR =================== */
-
-.progress-track {
-  height: 6px;
-  background: #252525;
-  border-radius: 3px;
-  overflow: hidden;
-  margin: 12px 0;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #e05c23;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.progress-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #888;
-}
-
-/* =================== COMPLETED BANNER =================== */
-
-.complete-card {
-  background: #0d1f16;
-  border: 1px solid #14532d;
+/* ---------- Done / Skipped states ---------- */
+.done-banner {
+  background: var(--success-bg);
+  border: 1px solid var(--legs-border);
   border-radius: 18px;
-  padding: 28px 20px;
+  padding: 24px 20px;
   text-align: center;
-  margin-bottom: 16px;
-}
-
-.complete-icon { font-size: 52px; margin-bottom: 10px; }
-.complete-title { font-size: 22px; font-weight: 800; color: #4ade80; }
-.complete-sub { font-size: 14px; color: #888; margin-top: 5px; }
-
-/* =================== STATS ROW =================== */
-
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 16px 0;
-}
-
-.stat-box {
-  background: #1a1a1a;
-  border-radius: 14px;
-  padding: 14px 8px;
-  text-align: center;
-}
-
-.stat-val { font-size: 24px; font-weight: 800; color: #f0f0f0; }
-.stat-lbl { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
-
-/* =================== REST DAY =================== */
-
-.rest-day {
-  text-align: center;
-  padding: 48px 24px 32px;
-}
-
-.rest-day-icon { font-size: 72px; margin-bottom: 16px; }
-.rest-day-title { font-size: 28px; font-weight: 800; color: #f0f0f0; margin-bottom: 8px; }
-.rest-day-sub { font-size: 16px; color: #888; line-height: 1.5; }
-
-/* =================== WEIGHT LOGGER =================== */
-
-.exercise-block {
-  background: #1a1a1a;
-  border-radius: 18px;
-  padding: 18px;
-  margin-bottom: 12px;
-  border: 1px solid #252525;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.exercise-block.all-done {
-  background: #0d1f16;
-  border-color: #166534;
-}
-
-.exercise-name {
-  font-size: 19px;
-  font-weight: 700;
-  color: #f0f0f0;
-  margin-bottom: 2px;
-}
-
-.exercise-hint {
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 2px;
-  line-height: 1.4;
-}
-
-.exercise-target {
-  font-size: 12px;
-  color: #666;
   margin-bottom: 14px;
 }
 
-/* Weight Adjuster */
-.weight-adjuster {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: #252525;
-  border-radius: 14px;
-  overflow: hidden;
+.done-icon      { font-size: 48px; margin-bottom: 8px; }
+.done-title     { font-size: 22px; font-weight: 800; color: var(--success); }
+.done-sub       { font-size: 13px; color: #888; margin-top: 5px; }
+
+.skipped-banner {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 18px;
+  padding: 20px;
+  text-align: center;
   margin-bottom: 14px;
 }
 
-.w-btn {
-  width: 56px;
-  height: 52px;
-  border: none;
-  background: transparent;
-  color: #f0f0f0;
-  font-size: 26px;
-  font-weight: 300;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.1s;
-  flex-shrink: 0;
-}
+.skipped-title  { font-size: 18px; font-weight: 700; color: #666; }
+.skipped-sub    { font-size: 13px; color: #555; margin-top: 5px; }
 
-.w-btn:active { background: #333; }
-
-.w-display {
-  flex: 1;
+/* ---------- Rest day ---------- */
+.rest-view {
   text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  color: #f0f0f0;
-  cursor: pointer;
+  padding: 40px 24px 28px;
 }
 
-.w-unit {
-  font-size: 12px;
-  color: #888;
-  font-weight: 400;
-  margin-left: 3px;
-}
+.rest-icon  { font-size: 72px; margin-bottom: 16px; }
+.rest-title { font-size: 30px; font-weight: 900; color: #f0f0f0; margin-bottom: 8px; }
+.rest-sub   { font-size: 15px; color: #777; line-height: 1.55; max-width: 280px; margin: 0 auto; }
 
-/* Set Buttons */
-.sets-row {
-  display: flex;
-  gap: 10px;
-}
-
-.set-btn {
-  flex: 1;
-  height: 64px;
-  min-width: 0;
-  border-radius: 14px;
-  border: 2px solid #2a2a2a;
-  background: #111;
-  color: #666;
-  font-size: 17px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  transition: all 0.15s;
-  line-height: 1;
-}
-
-.set-btn .set-num { font-size: 13px; font-weight: 500; }
-.set-btn .set-check { font-size: 20px; }
-
-.set-btn.done {
-  background: #14532d;
-  border-color: #4ade80;
-  color: #4ade80;
-}
-
-.set-btn:active { transform: scale(0.90); }
-
-/* Finish bar */
-.finish-bar {
-  position: sticky;
-  bottom: 0;
-  padding: 12px 16px 16px;
-  background: linear-gradient(to top, #0d0d0d 70%, transparent);
-}
-
-/* =================== RUN LOGGER =================== */
-
-.run-instruction-card {
-  background: #111827;
-  border: 1px solid #1e3a5f;
-  border-radius: 18px;
-  padding: 18px;
-  margin-bottom: 16px;
-}
-
-.run-step {
-  display: flex;
-  gap: 12px;
-  padding: 9px 0;
-  border-bottom: 1px solid #1e2a3a;
-}
-
-.run-step:last-child { border-bottom: none; }
-
-.run-step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e05c23;
-  margin-top: 7px;
-  flex-shrink: 0;
-}
-
-.run-step-dot.blue { background: #60a5fa; }
-.run-step-dot.green { background: #4ade80; }
-.run-step-dot.orange { background: #fb923c; }
-.run-step-dot.red { background: #f87171; }
-
-.run-step-text { font-size: 15px; color: #e0e0e0; line-height: 1.45; flex: 1; }
-.run-step-label { font-size: 11px; color: #888; margin-top: 3px; }
-
-/* Form elements */
-.form-group { margin-bottom: 16px; }
-
-.form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.form-input {
-  width: 100%;
-  height: 54px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 14px;
-  padding: 0 18px;
-  font-size: 18px;
-  color: #f0f0f0;
-  outline: none;
-  -webkit-appearance: none;
-  font-family: inherit;
-  transition: border-color 0.15s;
-}
-
-.form-input:focus { border-color: #e05c23; }
-.form-input::placeholder { color: #444; }
-
-/* Time input — monospace large display */
-.time-input {
-  font-size: 32px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  letter-spacing: 0.05em;
-}
-
-.form-textarea {
-  width: 100%;
-  min-height: 88px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 14px;
-  padding: 14px 18px;
-  font-size: 15px;
-  color: #f0f0f0;
-  outline: none;
-  resize: none;
-  font-family: inherit;
-  -webkit-appearance: none;
-  transition: border-color 0.15s;
-}
-
-.form-textarea:focus { border-color: #e05c23; }
-.form-textarea::placeholder { color: #444; }
-
-/* Feel selector */
-.feel-row {
-  display: flex;
-  gap: 10px;
-}
-
-.feel-btn {
-  flex: 1;
-  height: 56px;
-  border-radius: 14px;
-  border: 2px solid #252525;
-  background: #1a1a1a;
-  font-size: 26px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.feel-btn.selected {
-  border-color: #e05c23;
-  background: #2a1506;
-}
-
-.feel-btn:active { transform: scale(0.92); }
-
-/* =================== SCHEDULE VIEW =================== */
-
+/* ---------- Schedule view ---------- */
 .week-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
   padding: 0 2px;
+  margin-bottom: 16px;
 }
 
-.week-nav-label {
-  font-size: 16px;
-  font-weight: 700;
-  color: #f0f0f0;
-}
+.week-nav-label     { font-size: 15px; font-weight: 700; color: #f0f0f0; }
+.week-nav-sublabel  { font-size: 11px; color: #555; text-align: center; margin-top: 2px; }
 
 .week-nav-btn {
   width: 44px;
@@ -609,348 +388,268 @@ body {
 .week-nav-btn:active { background: #252525; }
 .week-nav-btn svg { width: 20px; height: 20px; }
 
-.day-row {
+/* Day row in schedule */
+.sched-row {
   display: flex;
   align-items: center;
-  background: #1a1a1a;
+  gap: 12px;
+  padding: 13px 14px;
   border-radius: 16px;
-  padding: 14px 16px;
+  background: #161616;
+  border: 1px solid #1e1e1e;
   margin-bottom: 8px;
-  gap: 14px;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: border-color 0.1s;
-  min-height: 72px;
+  transition: border-color 0.12s;
+  min-height: 70px;
 }
 
-.day-row.today { border-color: #e05c23; }
-.day-row.done { background: #0d1f16; border-color: #166534; }
-.day-row.rest { opacity: 0.45; cursor: default; }
-.day-row:active:not(.rest) { opacity: 0.8; }
+.sched-row.is-today  { border-color: var(--accent); }
+.sched-row.is-done   { background: var(--success-bg); border-color: var(--legs-border); }
+.sched-row.is-skipped { opacity: 0.5; }
+.sched-row.is-rest   { cursor: default; opacity: 0.45; }
+.sched-row:active:not(.is-rest) { opacity: 0.78; }
 
-.day-indicator {
+.sched-date {
   text-align: center;
-  width: 40px;
+  width: 38px;
   flex-shrink: 0;
 }
 
-.day-abbr {
-  font-size: 11px;
+.sched-date-abbr {
+  font-size: 10px;
   font-weight: 700;
-  color: #888;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  color: #555;
 }
 
-.day-num-sched {
+.sched-date-num {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 900;
   color: #f0f0f0;
   line-height: 1.1;
 }
 
-.day-row.today .day-num-sched { color: #e05c23; }
+.sched-row.is-today .sched-date-num { color: var(--accent); }
 
-.day-info { flex: 1; min-width: 0; }
-.day-wkt-name { font-size: 15px; font-weight: 700; color: #f0f0f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.day-wkt-desc { font-size: 12px; color: #888; margin-top: 2px; }
+.sched-info  { flex: 1; min-width: 0; }
+.sched-name  { font-size: 15px; font-weight: 700; color: #f0f0f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sched-sub   { font-size: 11px; color: #666; margin-top: 2px; }
 
-.day-status-icon {
-  font-size: 22px;
-  flex-shrink: 0;
+.sched-status { font-size: 20px; flex-shrink: 0; }
+
+/* ---------- Workouts tab ---------- */
+.workout-library-card {
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 12px;
+  border: 1px solid;
 }
 
-/* =================== HISTORY VIEW =================== */
+.workout-library-card.push     { background: var(--push-bg);     border-color: var(--push-border); }
+.workout-library-card.pull     { background: var(--pull-bg);     border-color: var(--pull-border); }
+.workout-library-card.legs     { background: var(--legs-bg);     border-color: var(--legs-border); }
+.workout-library-card.run      { background: var(--run-bg);      border-color: var(--run-border); }
+.workout-library-card.optional { background: var(--optional-bg); border-color: var(--optional-border); }
 
-.history-section-label {
+.wl-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+
+.workout-library-card.push .wl-title     { color: var(--push-fg); }
+.workout-library-card.pull .wl-title     { color: var(--pull-fg); }
+.workout-library-card.legs .wl-title     { color: var(--legs-fg); }
+.workout-library-card.run  .wl-title     { color: var(--run-fg); }
+.workout-library-card.optional .wl-title { color: var(--optional-fg); }
+
+.wl-sub {
   font-size: 12px;
-  font-weight: 700;
-  color: #888;
+  color: #aaa;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+
+.exercise-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.exercise-chip {
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.35);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ddd;
+  letter-spacing: 0.03em;
+}
+
+.coming-soon-note {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+  text-align: right;
+}
+
+/* ---------- Progress tab ---------- */
+.progress-header {
+  text-align: center;
+  padding: 24px 16px 16px;
+}
+
+.progress-stat-big {
+  font-size: 72px;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.progress-stat-label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 20px 0 8px 4px;
+  font-weight: 600;
 }
 
-.history-item {
+.week-dots {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  background: #1a1a1a;
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: opacity 0.1s;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0 8px;
 }
 
-.history-item:active { opacity: 0.75; }
-
-.history-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
+.week-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.history-icon.weights { background: #2a1506; }
-.history-icon.run { background: #0f1e36; }
+.week-dot.done     { background: var(--success-bg); color: var(--success); border: 1px solid var(--legs-border); }
+.week-dot.skipped  { background: #1a1a1a; color: #444; border: 1px solid #2a2a2a; }
+.week-dot.pending  { background: #161616; color: #555; border: 1px solid #222; }
+.week-dot.rest     { background: #111; color: #333; border: 1px solid #1c1c1c; }
+.week-dot.today    { border-color: var(--accent) !important; }
 
-.history-info { flex: 1; min-width: 0; }
-.history-date { font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.history-name { font-size: 16px; font-weight: 700; color: #f0f0f0; margin-top: 2px; }
-.history-detail { font-size: 12px; color: #aaa; margin-top: 3px; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
 
-/* =================== SETTINGS VIEW =================== */
+.stat-tile {
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+}
 
+.stat-tile-val   { font-size: 28px; font-weight: 900; color: #f0f0f0; }
+.stat-tile-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+
+/* ---------- Settings tab ---------- */
 .settings-section { margin-bottom: 28px; }
 
-.settings-section-label {
+.settings-group-label {
   font-size: 11px;
   font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #555;
   margin-bottom: 8px;
-  padding-left: 6px;
+  padding-left: 4px;
 }
 
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #1a1a1a;
+  background: #161616;
+  border: 1px solid #1e1e1e;
   border-radius: 14px;
-  padding: 16px 18px;
+  padding: 15px 16px;
   margin-bottom: 8px;
-  min-height: 56px;
+  min-height: 54px;
 }
 
 .settings-row-label { font-size: 15px; font-weight: 500; color: #f0f0f0; }
-.settings-row-value { font-size: 15px; color: #888; }
-.settings-row-link { font-size: 15px; color: #e05c23; font-weight: 600; cursor: pointer; }
+.settings-row-value { font-size: 14px; color: #666; }
+.settings-row-action { font-size: 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
 
-/* Toggle */
 .unit-toggle {
   display: flex;
   background: #252525;
-  border-radius: 10px;
+  border-radius: 9px;
   padding: 3px;
 }
 
 .unit-btn {
-  padding: 6px 18px;
+  padding: 5px 16px;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 7px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  color: #666;
+  color: #555;
   background: transparent;
   transition: all 0.15s;
 }
 
-.unit-btn.active { background: #1a1a1a; color: #f0f0f0; }
+.unit-btn.active { background: #161616; color: #f0f0f0; }
 
-/* Reset confirm */
-.reset-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+/* ---------- Form inputs ---------- */
+.form-group { margin-bottom: 16px; }
 
-/* =================== WELCOME / SETUP =================== */
-
-.welcome-view {
-  padding: 32px 24px;
-  text-align: center;
-}
-
-.app-logo {
-  font-size: 48px;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  color: #e05c23;
-  margin-bottom: 6px;
-}
-
-.app-tagline {
-  font-size: 16px;
-  color: #888;
-  margin-bottom: 36px;
-  line-height: 1.5;
-}
-
-.welcome-program-card {
-  background: #1a1a1a;
-  border-radius: 18px;
-  padding: 20px;
-  margin-bottom: 28px;
-  text-align: left;
-}
-
-.welcome-program-title {
-  font-size: 16px;
+.form-label {
+  font-size: 12px;
   font-weight: 700;
+  color: #666;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  height: 52px;
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 13px;
+  padding: 0 16px;
+  font-size: 16px;
   color: #f0f0f0;
-  margin-bottom: 14px;
+  outline: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
 }
 
-.program-line {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #252525;
-  font-size: 14px;
-  color: #ccc;
-}
-
-.program-line:last-child { border-bottom: none; }
-
-.program-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.program-dot.orange { background: #fb923c; }
-.program-dot.blue { background: #60a5fa; }
-.program-dot.green { background: #4ade80; }
-
-/* =================== NEXT WORKOUT CARD =================== */
-
-.next-card {
-  background: #1a1a1a;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-
-.next-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
-}
-
-.next-title { font-size: 17px; font-weight: 700; color: #f0f0f0; }
-.next-desc { font-size: 13px; color: #aaa; margin-top: 3px; }
-
-/* =================== SECTION DIVIDER =================== */
-
-.section-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 20px 0 10px 2px;
-}
-
-/* =================== EMPTY STATE =================== */
-
-.empty-state {
-  text-align: center;
-  padding: 64px 24px;
-  color: #555;
-}
-
-.empty-icon { font-size: 52px; margin-bottom: 12px; }
-.empty-title { font-size: 18px; font-weight: 700; color: #666; margin-bottom: 8px; }
-.empty-text { font-size: 14px; color: #555; line-height: 1.6; }
-
-/* =================== WEEK SUMMARY BADGE =================== */
-
-.week-progress-row {
-  display: flex;
-  gap: 8px;
-  margin: 16px 0;
-}
-
-.week-dot {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: #252525;
-  transition: background 0.3s;
-}
-
-.week-dot.done { background: #e05c23; }
-.week-dot.partial { background: #8b3a16; }
-
-/* =================== UTILITY =================== */
-
-.text-muted { color: #888; }
-.text-accent { color: #e05c23; }
-.text-success { color: #4ade80; }
-.text-run { color: #60a5fa; }
-.text-warn { color: #fbbf24; }
-.text-sm { font-size: 13px; }
-.text-xs { font-size: 11px; }
-.text-center { text-align: center; }
-.fw-700 { font-weight: 700; }
-.fw-800 { font-weight: 800; }
-.mt-4 { margin-top: 4px; }
-.mt-8 { margin-top: 8px; }
-.mt-12 { margin-top: 12px; }
-.mt-16 { margin-top: 16px; }
-.mt-20 { margin-top: 20px; }
-.mb-4 { margin-bottom: 4px; }
-.mb-8 { margin-bottom: 8px; }
-.mb-12 { margin-bottom: 12px; }
-.mb-16 { margin-bottom: 16px; }
-.mb-20 { margin-bottom: 20px; }
-
-/* =================== ANIMATIONS =================== */
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes pop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(0.88); }
-  70%  { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-
-.fade-up { animation: fadeUp 0.22s ease forwards; }
-
-.set-btn.just-done { animation: pop 0.3s ease; }
-
-/* =================== WORKOUT SUMMARY EXERCISE LIST =================== */
-
-.summary-exercise {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid #252525;
-  font-size: 14px;
-}
-
-.summary-exercise:last-child { border-bottom: none; }
-.summary-ex-name { color: #ccc; }
-.summary-ex-val { color: #f0f0f0; font-weight: 700; }
-
-/* =================== DATE PICKER WRAPPER =================== */
+.form-input:focus       { border-color: var(--accent); }
+.form-input::placeholder { color: #3a3a3a; }
 
 input[type="date"] {
   color-scheme: dark;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 14px;
-  padding: 0 18px;
-  height: 54px;
-  font-size: 17px;
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 13px;
+  padding: 0 16px;
+  height: 52px;
+  font-size: 16px;
   color: #f0f0f0;
   width: 100%;
   outline: none;
@@ -958,4 +657,124 @@ input[type="date"] {
   font-family: inherit;
 }
 
-input[type="date"]:focus { border-color: #e05c23; }
+input[type="date"]:focus { border-color: var(--accent); }
+
+/* ---------- Modal / overlay ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 40;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 398px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 22px;
+  padding: 22px 20px 20px;
+  z-index: 50;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #f0f0f0;
+  margin-bottom: 4px;
+}
+
+.modal-sub {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.modal-day-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.modal-day-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #252525;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.1s;
+}
+
+.modal-day-option:active { border-color: var(--accent); }
+.modal-day-option-label { font-size: 15px; font-weight: 600; color: #f0f0f0; }
+.modal-day-option-sub   { font-size: 12px; color: #666; }
+
+/* ---------- Next workout preview ---------- */
+.next-card {
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-top: 20px;
+}
+
+.next-label { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; }
+.next-name  { font-size: 16px; font-weight: 700; color: #f0f0f0; }
+.next-sub   { font-size: 12px; color: #777; margin-top: 2px; }
+
+/* ---------- Empty / placeholder states ---------- */
+.empty-state {
+  text-align: center;
+  padding: 60px 24px;
+}
+
+.empty-icon  { font-size: 52px; margin-bottom: 14px; }
+.empty-title { font-size: 18px; font-weight: 700; color: #555; margin-bottom: 8px; }
+.empty-text  { font-size: 14px; color: #444; line-height: 1.6; }
+
+/* ---------- Utility ---------- */
+.hidden  { display: none !important; }
+.mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-20 { margin-top: 20px; }
+.mb-8  { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.text-muted  { color: #666; }
+.text-accent { color: var(--accent); }
+.text-center { text-align: center; }
+.text-sm     { font-size: 13px; }
+.text-xs     { font-size: 11px; }
+.fw-700      { font-weight: 700; }
+.pb-safe     { padding-bottom: 20px; }
+
+/* ---------- Divider ---------- */
+.divider { height: 1px; background: #1e1e1e; margin: 16px 0; }
+
+/* ---------- Animations ---------- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(40px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+.fade-up   { animation: fadeUp  0.22s ease forwards; }
+.slide-up  { animation: slideUp 0.25s ease forwards; }
