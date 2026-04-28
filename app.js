@@ -1,105 +1,111 @@
 // ============================================================
-//  MOAB Weight Training — Phase 1: App Shell
+//  MOAB Weight Training — Phase 2: Schedule & Flex Logic
 //  Mobile-first · localStorage · No backend
 // ============================================================
 
 'use strict';
 
 // ============================================================
-//  WEEKLY SCHEDULE
-//  Index = JS day-of-week (0 = Sunday, 1 = Monday, …)
+//  WORKOUT TYPE DEFINITIONS
 // ============================================================
 
-const WEEKLY_SCHEDULE = {
-  0: {
-    type: 'rest',
-    name: 'Rest Day',
-    sub:  'Recovery & restoration',
-    color: 'rest',
-    emoji: '🛌',
-  },
-  1: {
-    type: 'push',
-    name: 'Push Strength',
-    sub:  'Chest · Shoulders · Triceps',
+const WORKOUT_TYPES = {
+  push: {
+    key:   'push',
+    name:  'Push Strength',
+    sub:   'Chest · Shoulders · Triceps',
     color: 'push',
     emoji: '🏋️',
+    day:   'Monday',
   },
-  2: {
-    type: 'run',
-    name: 'Run Training',
-    sub:  'Intervals · Speed · 2-Mile Program',
-    color: 'run',
-    emoji: '🏃',
-  },
-  3: {
-    type: 'pull',
-    name: 'Pull Strength',
-    sub:  'Back · Biceps · Rear Delts',
+  pull: {
+    key:   'pull',
+    name:  'Pull Strength',
+    sub:   'Back · Biceps · Rear Delts',
     color: 'pull',
     emoji: '🏋️',
+    day:   'Wednesday',
   },
-  4: {
-    type: 'run',
-    name: 'Run Training',
-    sub:  'Tempo · Aerobic Base · 2-Mile Program',
-    color: 'run',
-    emoji: '🏃',
-  },
-  5: {
-    type: 'legs',
-    name: 'Legs Strength',
-    sub:  'Quads · Hamstrings · Glutes · Calves',
+  legs: {
+    key:   'legs',
+    name:  'Legs Strength',
+    sub:   'Quads · Hamstrings · Glutes · Calves',
     color: 'legs',
     emoji: '🦵',
+    day:   'Friday',
   },
-  6: {
-    type: 'optional',
-    name: 'Optional Recovery',
-    sub:  'Mobility · Stretching · Light Activity',
+  run_a: {
+    key:   'run_a',
+    name:  'Run Training A',
+    sub:   'Speed · Intervals · Lactate',
+    color: 'run',
+    emoji: '🏃',
+    day:   'Tuesday',
+  },
+  run_b: {
+    key:   'run_b',
+    name:  'Run Training B',
+    sub:   'Tempo · Aerobic Base · Easy Miles',
+    color: 'run',
+    emoji: '🏃',
+    day:   'Thursday',
+  },
+  optional: {
+    key:   'optional',
+    name:  'Optional Recovery',
+    sub:   'Mobility · Stretching · Light Activity',
     color: 'optional',
     emoji: '🧘',
+    day:   'Saturday',
+  },
+  rest: {
+    key:   'rest',
+    name:  'Rest Day',
+    sub:   'Recovery & Restoration',
+    color: 'rest',
+    emoji: '🛌',
+    day:   'Sunday',
   },
 };
 
+// Default assignment for each day-of-week (0 = Sunday)
+const DEFAULT_SCHEDULE = {
+  0: 'rest',
+  1: 'push',
+  2: 'run_a',
+  3: 'pull',
+  4: 'run_b',
+  5: 'legs',
+  6: 'optional',
+};
+
 // ============================================================
-//  WORKOUT LIBRARY (Workouts tab — Phase 1 preview)
+//  WORKOUT LIBRARY (Workouts tab)
 // ============================================================
 
 const WORKOUT_LIBRARY = [
   {
-    type: 'push',
-    name: 'Push Strength',
-    day: 'Monday',
-    sub: 'Horizontal & vertical pushing — chest, shoulders, triceps',
+    key:       'push',
     exercises: ['Bench Press', 'Overhead Press', 'Incline DB Press', 'Lateral Raise', 'Tricep Pushdown'],
   },
   {
-    type: 'pull',
-    name: 'Pull Strength',
-    day: 'Wednesday',
-    sub: 'Horizontal & vertical pulling — back, biceps, rear delts',
+    key:       'pull',
     exercises: ['Deadlift', 'Barbell Row', 'Pull-up', 'Face Pull', 'Bicep Curl'],
   },
   {
-    type: 'legs',
-    name: 'Legs Strength',
-    day: 'Friday',
-    sub: 'Lower body compound & accessory movements',
+    key:       'legs',
     exercises: ['Back Squat', 'Romanian Deadlift', 'Leg Press', 'Walking Lunge', 'Calf Raise'],
   },
   {
-    type: 'run',
-    name: 'Run Training',
-    day: 'Tue & Thu',
-    sub: '12-week program to improve your 2-mile time',
-    exercises: ['Interval Sprints', 'Tempo Runs', 'Easy Aerobic Runs', 'Strides', '2-Mile Time Trial'],
+    key:       'run_a',
+    exercises: ['Warm-up 5min', '6–12 × 400m Intervals', 'Hard Effort — RPE 8–9', 'Walk/Jog Rest', 'Cool-down 5min'],
   },
   {
-    type: 'optional',
-    name: 'Recovery & Mobility',
-    day: 'Saturday (optional)',
-    sub: 'Light movement to aid recovery and prevent injury',
+    key:       'run_b',
+    exercises: ['Warm-up 5min', 'Tempo Run 20–30min', 'Comfortable-Hard — RPE 7', 'Strides × 4', 'Cool-down 5min'],
+  },
+  {
+    key:       'optional',
     exercises: ['Hip Flexor Stretch', 'Thoracic Rotation', 'Foam Rolling', 'Light Walk', 'Yoga Flow'],
   },
 ];
@@ -110,60 +116,79 @@ const WORKOUT_LIBRARY = [
 
 const Store = {
   KEYS: {
-    START:    'moab_start',       // program start date string YYYY-MM-DD
-    LOGS:     'moab_day_logs',    // { 'YYYY-MM-DD': { status, ... } }
-    MOVES:    'moab_moves',       // { 'from-date': 'to-date' }
-    EXTRA:    'moab_extra',       // { 'YYYY-MM-DD': workoutType } from moves
-    UNIT:     'moab_unit',        // 'lbs' | 'kg'
+    START:       'moab_start',
+    LOGS:        'moab_day_logs',
+    ASSIGNMENTS: 'moab_assignments',  // date-specific workout overrides
+    UNIT:        'moab_unit',
   },
 
-  get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
-  set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
-  rm(key)       { localStorage.removeItem(key); },
+  _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+  _set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
 
+  // ---- Program start ----
   getProgramStart() {
-    const s = this.get(this.KEYS.START);
+    const s = this._get(this.KEYS.START);
     return s ? fromDateStr(s) : null;
   },
+  setProgramStart(d) { this._set(this.KEYS.START, toDateStr(d)); },
 
-  setProgramStart(d) { this.set(this.KEYS.START, toDateStr(d)); },
+  // ---- Unit preference ----
+  getUnit()   { return this._get(this.KEYS.UNIT) || 'lbs'; },
+  setUnit(u)  { this._set(this.KEYS.UNIT, u); },
 
-  getLogs()  { return this.get(this.KEYS.LOGS)  || {}; },
-  getMoves() { return this.get(this.KEYS.MOVES) || {}; },
-  getExtra() { return this.get(this.KEYS.EXTRA) || {}; },
+  // ---- Day logs: completion/skip status ----
+  getLogs()  { return this._get(this.KEYS.LOGS) || {}; },
+  getDayLog(ds) { return this.getLogs()[ds] || null; },
 
-  getDayLog(dateStr) { return this.getLogs()[dateStr] || null; },
-
-  setDayLog(dateStr, data) {
+  setDayLog(ds, patch) {
     const logs = this.getLogs();
-    logs[dateStr] = { ...logs[dateStr], ...data };
-    this.set(this.KEYS.LOGS, logs);
+    logs[ds] = { ...(logs[ds] || {}), ...patch };
+    this._set(this.KEYS.LOGS, logs);
   },
 
-  recordMove(fromStr, toStr) {
-    const moves = this.getMoves();
-    moves[fromStr] = toStr;
-    this.set(this.KEYS.MOVES, moves);
-
-    // Mark the original day as "moved away"
-    this.setDayLog(fromStr, { status: 'moved', movedTo: toStr });
-
-    // Record an extra workout on the destination day
-    const extra = this.getExtra();
-    extra[toStr] = this.getWorkoutTypeForDate(fromDateStr(fromStr));
-    this.set(this.KEYS.EXTRA, extra);
+  deleteDayLog(ds) {
+    const logs = this.getLogs();
+    delete logs[ds];
+    this._set(this.KEYS.LOGS, logs);
   },
 
-  getWorkoutTypeForDate(d) {
-    // Check if there's a moved-in workout for this date
-    const extra = this.getExtra();
-    const ds = toDateStr(d);
-    if (extra[ds]) return extra[ds];
-    return d.getDay();  // fall back to default day-of-week
+  // ---- Assignments: date-specific workout type overrides ----
+  getAssignments() { return this._get(this.KEYS.ASSIGNMENTS) || {}; },
+
+  getAssignment(ds) {
+    const a = this.getAssignments();
+    return (ds in a) ? a[ds] : null;  // null = use default
   },
 
-  getUnit()   { return this.get(this.KEYS.UNIT) || 'lbs'; },
-  setUnit(u)  { this.set(this.KEYS.UNIT, u); },
+  setAssignment(ds, typeKey) {
+    const a = this.getAssignments();
+    a[ds] = typeKey;
+    this._set(this.KEYS.ASSIGNMENTS, a);
+  },
+
+  deleteAssignment(ds) {
+    const a = this.getAssignments();
+    delete a[ds];
+    this._set(this.KEYS.ASSIGNMENTS, a);
+  },
+
+  // ---- Derived: effective workout type for a date ----
+  getWorkoutType(ds) {
+    const override = this.getAssignment(ds);
+    if (override !== null) return override;
+    return DEFAULT_SCHEDULE[fromDateStr(ds).getDay()];
+  },
+
+  getWorkoutInfo(ds) {
+    const type = this.getWorkoutType(ds);
+    return WORKOUT_TYPES[type] || WORKOUT_TYPES['rest'];
+  },
+
+  // ---- All stats ----
+  getTotalCompleted() {
+    const logs = this.getLogs();
+    return Object.values(logs).filter(l => l?.status === 'completed').length;
+  },
 
   clearAll() {
     Object.values(this.KEYS).forEach(k => localStorage.removeItem(k));
@@ -171,13 +196,70 @@ const Store = {
 };
 
 // ============================================================
+//  SCHEDULE ACTIONS
+// ============================================================
+
+// Mark a day as completed
+function completeDay(ds) {
+  Store.setDayLog(ds, { status: 'completed', completedAt: new Date().toISOString() });
+}
+
+// Mark a day as skipped (preserves the workout assignment)
+function skipDay(ds) {
+  Store.setDayLog(ds, { status: 'skipped', skippedAt: new Date().toISOString() });
+}
+
+// Remove the log for a day (resets to 'planned')
+function undoDay(ds) {
+  Store.deleteDayLog(ds);
+}
+
+// Move the workout from fromDs to toDs.
+// Source day becomes 'rest'. Destination gets the workout type.
+// The move is stored in logs for history.
+function moveWorkout(fromDs, toDs) {
+  const type = Store.getWorkoutType(fromDs);
+
+  // Assign the workout to the destination
+  Store.setAssignment(toDs, type);
+
+  // Source day: override to rest and log the move
+  Store.setAssignment(fromDs, 'rest');
+  Store.setDayLog(fromDs, { status: 'moved', movedTo: toDs, originalType: type });
+
+  // Clear any existing log at destination (fresh start)
+  Store.deleteDayLog(toDs);
+}
+
+// Swap the workout assignments of two days.
+// Does not change completion status of either day.
+function swapWorkouts(ds1, ds2) {
+  const type1 = Store.getWorkoutType(ds1);
+  const type2 = Store.getWorkoutType(ds2);
+  Store.setAssignment(ds1, type2);
+  Store.setAssignment(ds2, type1);
+}
+
+// Undo a move: restore both source and destination to their defaults.
+function undoMove(fromDs, log) {
+  // Remove source override so it falls back to default
+  Store.deleteAssignment(fromDs);
+  Store.deleteDayLog(fromDs);
+
+  // Remove destination override (if it was the move target)
+  if (log?.movedTo) {
+    Store.deleteAssignment(log.movedTo);
+  }
+}
+
+// ============================================================
 //  DATE UTILITIES
 // ============================================================
 
-const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTHS_S    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS    = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_S  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAYS_S    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function today() {
   const n = new Date();
@@ -185,8 +267,8 @@ function today() {
 }
 
 function toDateStr(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
 }
@@ -217,35 +299,23 @@ function getProgramWeek(d) {
   return Math.max(1, diff + 1);
 }
 
-// ============================================================
-//  WORKOUT LOOKUP
-// ============================================================
-
-// Returns the WEEKLY_SCHEDULE entry for a given date,
-// accounting for any "moved-in" workouts.
-function getScheduledWorkout(d) {
-  const extra = Store.getExtra();
-  const ds    = toDateStr(d);
-  if (extra[ds]) {
-    // A workout was moved to this day — look it up
-    const dayIdx = typeof extra[ds] === 'number'
-      ? extra[ds]
-      : Object.values(WEEKLY_SCHEDULE).findIndex(w => w.type === extra[ds]);
-    return WEEKLY_SCHEDULE[dayIdx >= 0 ? dayIdx : d.getDay()];
-  }
-  return WEEKLY_SCHEDULE[d.getDay()];
+function dayLabel(d, relativeTo) {
+  const base = relativeTo || today();
+  const diff = Math.round((d - base) / 86400000);
+  if (diff === 0)  return 'Today';
+  if (diff === 1)  return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  return `${DAYS_LONG[d.getDay()]}, ${MONTHS_S[d.getMonth()]} ${d.getDate()}`;
 }
 
-// Looks ahead up to 7 days to find the next non-rest workout
 function findNextWorkout(fromDate) {
   for (let i = 1; i <= 7; i++) {
-    const d  = addDays(fromDate, i);
-    const w  = getScheduledWorkout(d);
-    const ds = toDateStr(d);
+    const d   = addDays(fromDate, i);
+    const ds  = toDateStr(d);
+    const wkt = Store.getWorkoutInfo(ds);
     const log = Store.getDayLog(ds);
-    if (w.type !== 'rest' && (!log || log.status !== 'moved')) {
-      const label = i === 1 ? 'Tomorrow' : DAYS_LONG[d.getDay()];
-      return { workout: w, date: d, label };
+    if (wkt.key !== 'rest' && log?.status !== 'moved') {
+      return { wkt, date: d, label: dayLabel(d) };
     }
   }
   return null;
@@ -256,31 +326,27 @@ function findNextWorkout(fromDate) {
 // ============================================================
 
 const state = {
-  view:           'today',   // current top-level view
-  schedWeekOff:   0,         // week offset for schedule tab (0 = current)
-  modalOpen:      false,
-  modalDateStr:   null,      // date the Move modal is for
-  resetConfirm:   false,
+  view:          'today',
+  schedWeekOff:  0,
+  modalPage:     null,  // 'action' | 'move' | 'swap'
+  modalDateStr:  null,
+  resetConfirm:  false,
 };
 
 // ============================================================
-//  RENDER HELPERS
+//  DOM HELPERS
 // ============================================================
 
-function setView(html) {
-  document.getElementById('view').innerHTML = html;
-}
-
-function setTitle(t) {
-  document.getElementById('header-title').textContent = t;
-}
+function $id(id)       { return document.getElementById(id); }
+function setView(html) { $id('view').innerHTML = html; }
+function setTitle(t)   { $id('header-title').textContent = t; }
 
 function showBack(show) {
-  document.getElementById('back-btn').classList.toggle('hidden', !show);
+  $id('back-btn').classList.toggle('hidden', !show);
 }
 
 function showNav(show) {
-  document.getElementById('bottom-nav').style.visibility = show ? '' : 'hidden';
+  $id('bottom-nav').style.visibility = show ? '' : 'hidden';
 }
 
 function setActiveNav(v) {
@@ -290,20 +356,40 @@ function setActiveNav(v) {
 }
 
 function showModal(html) {
-  const overlay = document.getElementById('overlay');
-  const modal   = document.getElementById('modal');
-  overlay.classList.remove('hidden');
-  modal.classList.remove('hidden');
-  modal.innerHTML = html;
-  modal.classList.add('slide-up');
-  state.modalOpen = true;
+  $id('overlay').classList.remove('hidden');
+  const m = $id('modal');
+  m.classList.remove('hidden');
+  m.innerHTML = html;
+  m.classList.remove('slide-up');
+  void m.offsetWidth;           // force reflow so animation replays
+  m.classList.add('slide-up');
+  state.modalPage = state.modalPage || 'action';
 }
 
 function hideModal() {
-  document.getElementById('overlay').classList.add('hidden');
-  document.getElementById('modal').classList.add('hidden');
-  document.getElementById('modal').innerHTML = '';
-  state.modalOpen = false;
+  $id('overlay').classList.add('hidden');
+  $id('modal').classList.add('hidden');
+  $id('modal').innerHTML = '';
+  state.modalPage    = null;
+  state.modalDateStr = null;
+}
+
+// ============================================================
+//  STATUS HELPERS
+// ============================================================
+
+function getStatusLabel(status) {
+  return { completed: 'Completed', skipped: 'Skipped', moved: 'Moved', planned: 'Planned' }[status] || 'Planned';
+}
+
+function statusBadge(status) {
+  const label = getStatusLabel(status);
+  return `<span class="status-badge ${status || 'planned'}">${label}</span>`;
+}
+
+function labelForType(key) {
+  const map = { push: 'Push', pull: 'Pull', legs: 'Legs', run_a: 'Run A', run_b: 'Run B', optional: 'Opt', rest: 'Rest' };
+  return map[key] || key;
 }
 
 // ============================================================
@@ -316,135 +402,113 @@ function renderToday() {
   showNav(true);
   setActiveNav('today');
 
-  const t       = today();
-  const ds      = toDateStr(t);
-  const wkt     = getScheduledWorkout(t);
-  const log     = Store.getDayLog(ds);
-  const week    = getProgramWeek(t);
-  const status  = log?.status || 'pending';
+  const t    = today();
+  const ds   = toDateStr(t);
+  const wkt  = Store.getWorkoutInfo(ds);
+  const log  = Store.getDayLog(ds);
+  const week = getProgramWeek(t);
+  const status = log?.status || 'planned';
 
-  const header = buildTodayHeader(t, week);
-
-  let body = '';
-
-  if (wkt.type === 'rest') {
-    body = buildRestDay(t);
-  } else if (status === 'completed') {
-    body = buildTodayCompleted(ds, wkt, log);
-  } else if (status === 'skipped') {
-    body = buildTodaySkipped(ds, wkt);
-  } else if (status === 'moved') {
-    // This day's workout was moved — treat as rest
-    body = buildMovedAway(t, log);
-  } else {
-    body = buildTodayWorkout(ds, wkt);
-  }
-
-  setView(`<div class="pad fade-up">${header}${body}</div>`);
-}
-
-function buildTodayHeader(d, week) {
-  return `
+  const header = `
     <div class="today-header">
-      <div class="today-dayname">${DAYS_LONG[d.getDay()]}</div>
-      <div class="today-datenum">${d.getDate()}</div>
-      <div class="today-monthyear">${MONTHS[d.getMonth()]} ${d.getFullYear()}</div>
+      <div class="today-dayname">${DAYS_LONG[t.getDay()]}</div>
+      <div class="today-datenum">${t.getDate()}</div>
+      <div class="today-monthyear">${MONTHS[t.getMonth()]} ${t.getFullYear()}</div>
     </div>
     <div class="text-center mb-16">
       <span class="eyebrow">Program · Week ${week}</span>
     </div>
   `;
+
+  let body;
+  if (wkt.key === 'rest') {
+    body = buildRestDay(t);
+  } else if (status === 'completed') {
+    body = buildDoneState(ds, wkt, log);
+  } else if (status === 'skipped') {
+    body = buildSkippedState(ds, wkt);
+  } else if (status === 'moved') {
+    body = buildMovedState(ds, log);
+  } else {
+    body = buildActiveWorkout(ds, wkt);
+  }
+
+  setView(`<div class="pad fade-up">${header}${body}</div>`);
 }
 
-function buildTodayWorkout(ds, wkt) {
+function buildActiveWorkout(ds, wkt) {
   return `
     <div class="workout-card ${wkt.color}">
-      <div class="type-pill ${wkt.color}">${wkt.emoji} &nbsp;${labelForType(wkt.type)}</div>
+      <div class="type-pill ${wkt.color}">${wkt.emoji}&nbsp; ${labelForType(wkt.key)}</div>
       <div class="workout-card-title">${wkt.name}</div>
       <div class="workout-card-sub">${wkt.sub}</div>
     </div>
 
-    <button class="btn btn-primary mt-4" data-action="start-workout" data-date="${ds}">
+    <button class="btn btn-primary" data-action="do-start" data-date="${ds}">
       Start Workout
     </button>
 
-    <div class="btn-row mt-12">
-      <button class="btn btn-secondary btn-sm" data-action="skip-workout" data-date="${ds}">
-        Skip
-      </button>
-      <button class="btn btn-secondary btn-sm" data-action="open-move-modal" data-date="${ds}">
-        Move / Flex
-      </button>
+    <div class="btn-row-3 mt-10">
+      <button class="btn btn-secondary btn-sm" data-action="do-skip"  data-date="${ds}">Skip</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
     </div>
   `;
 }
 
-function buildTodayCompleted(ds, wkt, log) {
-  const time = log.completedAt
+function buildDoneState(ds, wkt, log) {
+  const time = log?.completedAt
     ? new Date(log.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '';
   const next = findNextWorkout(today());
-
   return `
     <div class="done-banner">
       <div class="done-icon">✅</div>
       <div class="done-title">${wkt.name} Done</div>
       <div class="done-sub">${time ? `Finished at ${time}` : 'Completed today'}</div>
     </div>
-
-    ${next ? `
-      <div class="next-card">
-        <div class="next-label">Next Up</div>
-        <div class="next-name">${next.workout.name}</div>
-        <div class="next-sub">${next.label} · ${next.workout.sub}</div>
-      </div>` : ''}
-
-    <button class="btn btn-secondary mt-16" data-action="undo-workout" data-date="${ds}">
-      Undo
-    </button>
+    ${nextCard(next)}
+    <div class="btn-row mt-16">
+      <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+    </div>
   `;
 }
 
-function buildTodaySkipped(ds, wkt) {
+function buildSkippedState(ds, wkt) {
   const next = findNextWorkout(today());
   return `
     <div class="skipped-banner">
-      <div class="skipped-title">Skipped Today</div>
-      <div class="skipped-sub">${wkt.name} was skipped.</div>
+      <div class="skipped-title">Skipped — ${wkt.name}</div>
+      <div class="skipped-sub">This workout is still on the calendar.</div>
     </div>
-
-    ${next ? `
-      <div class="next-card">
-        <div class="next-label">Next Up</div>
-        <div class="next-name">${next.workout.name}</div>
-        <div class="next-sub">${next.label} · ${next.workout.sub}</div>
-      </div>` : ''}
-
-    <button class="btn btn-ghost mt-16" data-action="undo-workout" data-date="${ds}">
+    ${nextCard(next)}
+    <button class="btn btn-ghost mt-16" data-action="do-undo" data-date="${ds}">
       Changed my mind — Log it
     </button>
+    <div class="btn-row mt-10">
+      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+    </div>
   `;
 }
 
-function buildMovedAway(d, log) {
-  const toDate    = log.movedTo ? fromDateStr(log.movedTo) : null;
-  const movedLabel = toDate
-    ? `Moved to ${DAYS_LONG[toDate.getDay()]}, ${MONTHS_S[toDate.getMonth()]} ${toDate.getDate()}`
-    : 'Moved to another day';
-  const next = findNextWorkout(d);
+function buildMovedState(ds, log) {
+  const toDate  = log?.movedTo ? fromDateStr(log.movedTo) : null;
+  const toLbl   = toDate ? `${DAYS_LONG[toDate.getDay()]}, ${MONTHS_S[toDate.getMonth()]} ${toDate.getDate()}` : 'another day';
+  const next    = findNextWorkout(today());
+  const origWkt = log?.originalType ? WORKOUT_TYPES[log.originalType] : null;
 
   return `
-    <div class="rest-view">
-      <div class="rest-icon">📆</div>
-      <div class="rest-title">Workout Moved</div>
-      <div class="rest-sub">${movedLabel}</div>
+    <div class="skipped-banner">
+      <div class="skipped-title">${origWkt ? origWkt.name : 'Workout'} was moved</div>
+      <div class="skipped-sub">Rescheduled to ${toLbl}</div>
     </div>
-    ${next ? `
-      <div class="next-card">
-        <div class="next-label">Next Up</div>
-        <div class="next-name">${next.workout.name}</div>
-        <div class="next-sub">${next.label} · ${next.workout.sub}</div>
-      </div>` : ''}
+    ${nextCard(next)}
+    <button class="btn btn-secondary btn-sm mt-16" data-action="do-undo-move"
+            data-date="${ds}" data-log='${JSON.stringify(log)}'>
+      Undo Move
+    </button>
   `;
 }
 
@@ -454,14 +518,20 @@ function buildRestDay(d) {
     <div class="rest-view">
       <div class="rest-icon">🛌</div>
       <div class="rest-title">Rest Day</div>
-      <div class="rest-sub">Recovery is part of the program.<br>Eat well, sleep long, show up tomorrow.</div>
+      <div class="rest-sub">Recovery is part of the plan.<br>Eat well, sleep long, show up tomorrow.</div>
     </div>
-    ${next ? `
-      <div class="next-card">
-        <div class="next-label">Next Up</div>
-        <div class="next-name">${next.workout.name}</div>
-        <div class="next-sub">${next.label} · ${next.workout.sub}</div>
-      </div>` : ''}
+    ${nextCard(next)}
+  `;
+}
+
+function nextCard(next) {
+  if (!next) return '';
+  return `
+    <div class="next-card">
+      <div class="next-label">Next Up</div>
+      <div class="next-name">${next.wkt.name}</div>
+      <div class="next-sub">${next.label} · ${next.wkt.sub}</div>
+    </div>
   `;
 }
 
@@ -476,51 +546,58 @@ function renderSchedule() {
   setActiveNav('schedule');
 
   const t      = today();
-  const base   = addDays(getMondayOf(t), state.schedWeekOff * 7);
-  const monday = getMondayOf(base);
+  const tDs    = toDateStr(t);
+  const monday = getMondayOf(addDays(getMondayOf(t), state.schedWeekOff * 7));
   const week   = getProgramWeek(monday);
 
-  const isThisWeek = state.schedWeekOff === 0;
-  const weekLabel  = isThisWeek ? 'This Week'
-    : state.schedWeekOff === -1 ? 'Last Week'
-    : state.schedWeekOff === 1  ? 'Next Week'
-    : `${MONTHS_S[monday.getMonth()]} ${monday.getDate()}`;
+  const weekLbl =
+    state.schedWeekOff === 0  ? 'This Week' :
+    state.schedWeekOff === -1 ? 'Last Week' :
+    state.schedWeekOff === 1  ? 'Next Week' :
+    `${MONTHS_S[monday.getMonth()]} ${monday.getDate()}`;
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const rows = Array.from({ length: 7 }, (_, i) => addDays(monday, i)).map(d => {
+    const ds     = toDateStr(d);
+    const wkt    = Store.getWorkoutInfo(ds);
+    const log    = Store.getDayLog(ds);
+    const status = log?.status || 'planned';
+    const isToday = ds === tDs;
+    const isRest  = wkt.key === 'rest';
 
-  const rows = days.map(d => {
-    const ds   = toDateStr(d);
-    const wkt  = getScheduledWorkout(d);
-    const log  = Store.getDayLog(ds);
-    const status = log?.status || 'pending';
-    const isToday = ds === toDateStr(t);
-    const isRest  = wkt.type === 'rest';
+    // Row classes
+    let rowCls = '';
+    if (isToday)             rowCls += ' is-today';
+    if (status === 'completed') rowCls += ' is-done';
+    if (status === 'skipped')   rowCls += ' is-skipped';
+    if (isRest)              rowCls += ' is-rest';
 
-    let rowClass = '';
-    if (isToday)           rowClass += ' is-today';
-    if (status === 'completed') rowClass += ' is-done';
-    if (status === 'skipped')   rowClass += ' is-skipped';
-    if (isRest)            rowClass += ' is-rest';
+    // Status icon (right side)
+    const iconMap = { completed: '✅', skipped: '—', moved: '📆' };
+    const statusIcon = iconMap[status] || (isRest ? '' : (isToday ? '→' : '○'));
 
-    let statusIcon = '';
-    if (status === 'completed')  statusIcon = '✅';
-    else if (status === 'skipped') statusIcon = '—';
-    else if (status === 'moved')   statusIcon = '📆';
-    else if (!isRest)              statusIcon = isToday ? '→' : '○';
+    // Sub-text: show moved info
+    let sub = wkt.sub;
+    if (status === 'moved' && log?.movedTo) {
+      const toD = fromDateStr(log.movedTo);
+      sub = `Moved to ${DAYS_LONG[toD.getDay()]} ${toD.getDate()}`;
+    }
 
     return `
-      <div class="sched-row${rowClass}"
+      <div class="sched-row${rowCls}"
            data-action="${isRest ? '' : 'sched-tap'}"
            data-date="${ds}">
         <div class="sched-date">
-          <div class="sched-date-abbr">${DAYS_SHORT[d.getDay()]}</div>
+          <div class="sched-date-abbr">${DAYS_S[d.getDay()]}</div>
           <div class="sched-date-num">${d.getDate()}</div>
         </div>
         <div class="sched-info">
           <div class="sched-name">${wkt.name}</div>
-          <div class="sched-sub">${wkt.sub}</div>
+          <div class="sched-sub">${sub}</div>
         </div>
-        <div class="sched-status">${statusIcon}</div>
+        <div class="sched-right">
+          ${!isRest ? statusBadge(status === 'planned' ? null : status) : ''}
+          <span class="sched-arrow">${statusIcon}</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -535,7 +612,7 @@ function renderSchedule() {
           </svg>
         </button>
         <div class="text-center">
-          <div class="week-nav-label">${weekLabel}</div>
+          <div class="week-nav-label">${weekLbl}</div>
           <div class="week-nav-sublabel">Program Week ${week}</div>
         </div>
         <button class="week-nav-btn" data-action="sched-nav" data-delta="1">
@@ -546,6 +623,9 @@ function renderSchedule() {
         </button>
       </div>
       ${rows}
+      <p class="text-xs text-muted text-center mt-16" style="line-height:1.6;">
+        Tap any day to Start, Skip, Move, or Swap.
+      </p>
     </div>
   `);
 }
@@ -560,23 +640,26 @@ function renderWorkouts() {
   showNav(true);
   setActiveNav('workouts');
 
-  const cards = WORKOUT_LIBRARY.map(w => `
-    <div class="workout-library-card ${w.type}">
-      <div class="type-pill ${w.type}">${labelForType(w.type)}</div>
-      <div class="wl-title">${w.name}</div>
-      <div class="wl-sub">${w.day} &nbsp;·&nbsp; ${w.sub}</div>
-      <div class="exercise-list">
-        ${w.exercises.map(e => `<span class="exercise-chip">${e}</span>`).join('')}
+  const cards = WORKOUT_LIBRARY.map(entry => {
+    const wkt = WORKOUT_TYPES[entry.key];
+    return `
+      <div class="workout-library-card ${wkt.color}">
+        <div class="type-pill ${wkt.color}" style="margin-bottom:10px;">
+          ${wkt.emoji}&nbsp; ${labelForType(wkt.key)}
+        </div>
+        <div class="wl-title">${wkt.name}</div>
+        <div class="wl-sub">${wkt.day} &nbsp;·&nbsp; ${wkt.sub}</div>
+        <div class="exercise-list mt-12">
+          ${entry.exercises.map(e => `<span class="exercise-chip">${e}</span>`).join('')}
+        </div>
       </div>
-      <div class="coming-soon-note">Sets, reps & logging coming in Phase 2 →</div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   setView(`
     <div class="pad fade-up pb-safe">
       <p class="text-muted text-sm mb-16" style="line-height:1.6;">
-        Your full workout program at a glance.
-        Exercise details and logging will be built out in the next phase.
+        Your full 5-day program. Exercise details and in-workout logging come in Phase 3.
       </p>
       ${cards}
     </div>
@@ -597,52 +680,35 @@ function renderProgress() {
   const logs  = Store.getLogs();
   const start = Store.getProgramStart();
 
-  // This-week dots
-  const monday = getMondayOf(t);
+  const monday  = getMondayOf(t);
   const weekDots = Array.from({ length: 7 }, (_, i) => {
     const d   = addDays(monday, i);
     const ds  = toDateStr(d);
-    const wkt = getScheduledWorkout(d);
+    const wkt = Store.getWorkoutInfo(ds);
     const log = Store.getDayLog(ds);
-    const status = log?.status || 'pending';
+    const status = log?.status || 'planned';
     const isToday = ds === toDateStr(t);
 
-    let cls = 'pending';
-    if (wkt.type === 'rest')        cls = 'rest';
-    if (status === 'completed')     cls = 'done';
-    if (status === 'skipped')       cls = 'skipped';
-    if (isToday && cls === 'pending') cls = 'pending';
-
+    let cls = wkt.key === 'rest' ? 'rest' : (status === 'completed' ? 'done' : status === 'skipped' ? 'skipped' : 'pending');
     const extra = isToday ? ' today' : '';
-    return `<div class="week-dot ${cls}${extra}">${DAYS_SHORT[d.getDay()].charAt(0)}</div>`;
+    return `<div class="week-dot ${cls}${extra}">${DAYS_S[d.getDay()].charAt(0)}</div>`;
   }).join('');
 
-  // All-time counts
-  const allDates  = Object.keys(logs);
-  const totalDone = allDates.filter(d => logs[d]?.status === 'completed').length;
-  const totalSkip = allDates.filter(d => logs[d]?.status === 'skipped').length;
-  const currentWeek = getProgramWeek(t);
+  const totalDone  = Store.getTotalCompleted();
+  const totalSkip  = Object.values(logs).filter(l => l?.status === 'skipped').length;
+  const currentWk  = getProgramWeek(t);
 
-  // Streak: count consecutive days from today backwards
+  // Simple streak
   let streak = 0;
-  let check  = today();
+  let chk    = today();
   for (let i = 0; i < 60; i++) {
-    const ds  = toDateStr(check);
-    const wkt = getScheduledWorkout(check);
+    const ds  = toDateStr(chk);
+    const wkt = Store.getWorkoutInfo(ds);
     const log = Store.getDayLog(ds);
-    if (wkt.type === 'rest') {
-      check = addDays(check, -1);
-      continue;
-    }
-    if (log?.status === 'completed') {
-      streak++;
-      check = addDays(check, -1);
-    } else {
-      break;
-    }
+    if (wkt.key === 'rest') { chk = addDays(chk, -1); continue; }
+    if (log?.status === 'completed') { streak++; chk = addDays(chk, -1); }
+    else break;
   }
-
-  const noData = totalDone === 0 && totalSkip === 0;
 
   setView(`
     <div class="pad fade-up pb-safe">
@@ -659,7 +725,7 @@ function renderProgress() {
         </div>
 
         <div class="section-label">This Week</div>
-        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:6px;">
           ${weekDots}
         </div>
         <p class="text-center text-xs text-muted mb-16">M · T · W · T · F · S · S</p>
@@ -670,7 +736,7 @@ function renderProgress() {
             <div class="stat-tile-label">Day Streak</div>
           </div>
           <div class="stat-tile">
-            <div class="stat-tile-val">${currentWeek}</div>
+            <div class="stat-tile-val">${currentWk}</div>
             <div class="stat-tile-label">Program Week</div>
           </div>
           <div class="stat-tile">
@@ -682,15 +748,6 @@ function renderProgress() {
             <div class="stat-tile-label">Scheduled</div>
           </div>
         </div>
-
-        ${noData ? `
-          <p class="text-center text-sm text-muted mt-16" style="line-height:1.6;">
-            Start logging workouts from the Today tab<br>and your stats will appear here.
-          </p>` : ''}
-
-        <p class="text-center text-xs text-muted mt-20" style="line-height:1.6;">
-          Detailed charts and personal records are coming in a future phase.
-        </p>
       `}
     </div>
   `);
@@ -706,25 +763,17 @@ function renderSettings() {
   showNav(true);
   setActiveNav('settings');
 
-  const start  = Store.getProgramStart();
-  const unit   = Store.getUnit();
-  const logs   = Store.getLogs();
-  const total  = Object.keys(logs).filter(d => logs[d]?.status === 'completed').length;
+  const start = Store.getProgramStart();
+  const unit  = Store.getUnit();
 
   const resetHtml = state.resetConfirm ? `
     <p class="text-sm text-muted mb-12" style="padding:0 4px;line-height:1.5;">
-      This will permanently delete all workout logs and program data. This cannot be undone.
+      This will permanently delete all logs, assignments, and program data.
     </p>
-    <button class="btn btn-danger btn-sm mb-8" data-action="confirm-reset">
-      Yes, Delete Everything
-    </button>
-    <button class="btn btn-secondary btn-sm" data-action="cancel-reset">
-      Cancel
-    </button>
+    <button class="btn btn-danger btn-sm mb-8" data-action="confirm-reset">Yes, Delete Everything</button>
+    <button class="btn btn-secondary btn-sm"    data-action="cancel-reset">Cancel</button>
   ` : `
-    <button class="btn btn-secondary btn-sm" data-action="reset-data">
-      Reset All Data
-    </button>
+    <button class="btn btn-secondary btn-sm" data-action="reset-data">Reset All Data</button>
   `;
 
   setView(`
@@ -753,44 +802,39 @@ function renderSettings() {
         <div class="settings-row">
           <span class="settings-row-label">Weight Unit</span>
           <div class="unit-toggle">
-            <button class="unit-btn ${unit === 'lbs' ? 'active' : ''}"
-                    data-action="set-unit" data-unit="lbs">lbs</button>
-            <button class="unit-btn ${unit === 'kg' ? 'active' : ''}"
-                    data-action="set-unit" data-unit="kg">kg</button>
+            <button class="unit-btn ${unit === 'lbs' ? 'active' : ''}" data-action="set-unit" data-unit="lbs">lbs</button>
+            <button class="unit-btn ${unit === 'kg'  ? 'active' : ''}" data-action="set-unit" data-unit="kg">kg</button>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <div class="settings-group-label">Weekly Schedule</div>
-        ${Object.entries(WEEKLY_SCHEDULE).map(([day, w]) => `
-          <div class="settings-row" style="gap:10px;">
-            <span class="settings-row-label">${DAYS_LONG[day]}</span>
-            <span class="type-pill ${w.color}" style="margin-bottom:0;font-size:9.5px;">
-              ${w.name}
-            </span>
-          </div>
-        `).join('')}
+        <div class="settings-group-label">Default Weekly Schedule</div>
+        ${Object.entries(DEFAULT_SCHEDULE).map(([dow, key]) => {
+          const wkt = WORKOUT_TYPES[key];
+          return `
+            <div class="settings-row" style="gap:10px;">
+              <span class="settings-row-label">${DAYS_LONG[dow]}</span>
+              <span class="type-pill ${wkt.color}" style="margin-bottom:0;font-size:9.5px;">${wkt.name}</span>
+            </div>
+          `;
+        }).join('')}
         <p class="text-xs text-muted mt-8" style="padding:0 4px;line-height:1.5;">
-          Custom schedule editing coming in a future phase.
+          Use Move and Swap on any day to adjust your schedule.
         </p>
       </div>
 
       <div class="settings-section">
-        <div class="settings-group-label">Stats</div>
+        <div class="settings-group-label">Data</div>
         <div class="settings-row">
           <span class="settings-row-label">Workouts Logged</span>
-          <span class="settings-row-value">${total}</span>
+          <span class="settings-row-value">${Store.getTotalCompleted()}</span>
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 1.0</span>
+          <span class="settings-row-value">Phase 2.0</span>
         </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-group-label">Data</div>
-        ${resetHtml}
+        <div class="mt-12">${resetHtml}</div>
       </div>
 
     </div>
@@ -798,41 +842,157 @@ function renderSettings() {
 }
 
 // ============================================================
-//  MODAL: MOVE / FLEX
+//  MODALS
 // ============================================================
 
-function openMoveModal(dateStr) {
-  state.modalDateStr = dateStr;
-  const fromDate = fromDateStr(dateStr);
-  const wkt      = getScheduledWorkout(fromDate);
+// ---- Action sheet: tapping a day in the schedule (or Today sub-views) ----
+function openActionSheet(ds) {
+  state.modalPage    = 'action';
+  state.modalDateStr = ds;
 
-  // Build options: next 14 days (skip today, skip rest days that already have that workout)
-  const options = [];
-  for (let i = 1; i <= 14; i++) {
-    const d  = addDays(fromDate, i);
-    const ds = toDateStr(d);
-    const w  = getScheduledWorkout(d);
-    const existing = Store.getDayLog(ds);
-    if (existing?.status === 'completed') continue; // already done
-    const label = i === 1 ? 'Tomorrow' : DAYS_LONG[d.getDay()];
-    options.push({ d, ds, label, w });
+  const wkt    = Store.getWorkoutInfo(ds);
+  const log    = Store.getDayLog(ds);
+  const status = log?.status || 'planned';
+  const d      = fromDateStr(ds);
+  const lbl    = dayLabel(d);
+
+  let actions = '';
+
+  if (status === 'moved') {
+    const toD   = log?.movedTo ? fromDateStr(log.movedTo) : null;
+    const toLbl = toD ? `${DAYS_LONG[toD.getDay()]}, ${MONTHS_S[toD.getMonth()]} ${toD.getDate()}` : '—';
+    actions = `
+      <p class="text-sm text-muted text-center mb-12">
+        ${log?.originalType ? WORKOUT_TYPES[log.originalType]?.name : 'Workout'} was moved to ${toLbl}.
+      </p>
+      <button class="btn btn-secondary btn-sm" data-action="do-undo-move"
+              data-date="${ds}" data-log='${JSON.stringify(log)}'>
+        Undo Move
+      </button>
+    `;
+  } else if (status === 'completed') {
+    actions = `
+      <div class="btn-row mb-0">
+        <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
+        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+      </div>
+    `;
+  } else if (status === 'skipped') {
+    actions = `
+      <button class="btn btn-ghost mb-10" data-action="do-undo" data-date="${ds}">Undo Skip</button>
+      <div class="btn-row-3">
+        <button class="btn btn-secondary btn-sm" data-action="do-start"  data-date="${ds}">Start</button>
+        <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
+        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+      </div>
+    `;
+  } else {
+    // planned
+    actions = `
+      <button class="btn btn-primary mb-10" data-action="do-start" data-date="${ds}">
+        Start Workout
+      </button>
+      <div class="btn-row-3">
+        <button class="btn btn-secondary btn-sm" data-action="do-skip"  data-date="${ds}">Skip</button>
+        <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
+        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+      </div>
+    `;
   }
 
-  const optRows = options.map(o => `
-    <div class="modal-day-option" data-action="confirm-move" data-to="${o.ds}">
-      <div>
-        <div class="modal-day-option-label">${o.label}, ${MONTHS_S[o.d.getMonth()]} ${o.d.getDate()}</div>
-        <div class="modal-day-option-sub">Currently: ${o.w.name}</div>
+  showModal(`
+    <div class="sheet-header">
+      <div class="type-pill ${wkt.color}" style="margin-bottom:8px;">
+        ${wkt.emoji}&nbsp; ${labelForType(wkt.key)}
       </div>
-      <span style="color:#555;font-size:18px;">→</span>
+      <div class="modal-title">${wkt.name}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 16px;">
+        <span class="text-sm text-muted">${lbl}</span>
+        ${statusBadge(status === 'planned' ? null : status)}
+      </div>
+    </div>
+    ${actions}
+    <button class="btn btn-secondary btn-sm mt-10" data-action="close-modal">Cancel</button>
+  `);
+}
+
+// ---- Move modal: pick a destination day ----
+function openMoveModal(ds) {
+  state.modalPage = 'move';
+  const wkt  = Store.getWorkoutInfo(ds);
+  const from = fromDateStr(ds);
+
+  // Offer next 14 days; skip already-completed days
+  const options = [];
+  for (let i = 1; i <= 14; i++) {
+    const d    = addDays(from, i);
+    const tDs  = toDateStr(d);
+    const log  = Store.getDayLog(tDs);
+    if (log?.status === 'completed') continue;
+    const destWkt = Store.getWorkoutInfo(tDs);
+    options.push({ d, ds: tDs, destWkt });
+  }
+
+  const rows = options.map(o => `
+    <div class="modal-day-option" data-action="confirm-move" data-from="${ds}" data-to="${o.ds}">
+      <div>
+        <div class="modal-day-option-label">${dayLabel(o.d)}</div>
+        <div class="modal-day-option-sub">Currently: ${o.destWkt.name}</div>
+      </div>
+      <span class="modal-day-arrow">→</span>
     </div>
   `).join('');
 
   showModal(`
     <div class="modal-title">Move Workout</div>
-    <div class="modal-sub">Move <strong>${wkt.name}</strong> to a different day.</div>
-    <div class="modal-day-grid">${optRows}</div>
-    <button class="btn btn-secondary btn-sm" data-action="close-modal">Cancel</button>
+    <div class="modal-sub">
+      Move <strong>${wkt.name}</strong> to a new day.
+      The original day becomes a rest day.
+    </div>
+    <div class="modal-day-grid">${rows || '<p class="text-muted text-sm text-center">No available days in the next 14 days.</p>'}</div>
+    <button class="btn btn-secondary btn-sm mt-8"
+            data-action="back-to-sheet" data-date="${ds}">← Back</button>
+  `);
+}
+
+// ---- Swap modal: pick a day to exchange with ----
+function openSwapModal(ds) {
+  state.modalPage = 'swap';
+  const wkt  = Store.getWorkoutInfo(ds);
+  const from = fromDateStr(ds);
+
+  // Offer ±7 days around the source day, skip rest days and completed days
+  const options = [];
+  for (let i = -6; i <= 13; i++) {
+    if (i === 0) continue;
+    const d   = addDays(from, i);
+    const tDs = toDateStr(d);
+    const destWkt = Store.getWorkoutInfo(tDs);
+    if (destWkt.key === 'rest') continue;
+    const log = Store.getDayLog(tDs);
+    if (log?.status === 'completed') continue;
+    options.push({ d, ds: tDs, destWkt });
+  }
+
+  const rows = options.map(o => `
+    <div class="modal-day-option" data-action="confirm-swap" data-date1="${ds}" data-date2="${o.ds}">
+      <div>
+        <div class="modal-day-option-label">${dayLabel(o.d)}</div>
+        <div class="modal-day-option-sub">${o.destWkt.name}</div>
+      </div>
+      <span class="modal-day-arrow">⇄</span>
+    </div>
+  `).join('');
+
+  showModal(`
+    <div class="modal-title">Swap Workouts</div>
+    <div class="modal-sub">
+      Swap <strong>${wkt.name}</strong> with another day's workout.
+      Both days exchange their assignments.
+    </div>
+    <div class="modal-day-grid">${rows || '<p class="text-muted text-sm text-center">No swappable workouts nearby.</p>'}</div>
+    <button class="btn btn-secondary btn-sm mt-8"
+            data-action="back-to-sheet" data-date="${ds}">← Back</button>
   `);
 }
 
@@ -844,7 +1004,6 @@ function navigate(view) {
   state.view         = view;
   state.resetConfirm = false;
   hideModal();
-
   switch (view) {
     case 'today':    renderToday();    break;
     case 'schedule': renderSchedule(); break;
@@ -854,77 +1013,77 @@ function navigate(view) {
   }
 }
 
-// ============================================================
-//  LABEL HELPER
-// ============================================================
-
-function labelForType(type) {
-  const map = {
-    push:     'Push',
-    pull:     'Pull',
-    legs:     'Legs',
-    run:      'Run',
-    optional: 'Optional',
-    rest:     'Rest',
-  };
-  return map[type] || type;
+// Refresh the active view (e.g. after a data change)
+function refresh() {
+  navigate(state.view);
 }
 
 // ============================================================
-//  EVENT HANDLING  (single delegated listener)
+//  EVENT HANDLING
 // ============================================================
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
-
   const action = el.dataset.action;
 
-  // ---- Bottom nav ----
-  if (el.classList.contains('nav-btn')) {
-    navigate(el.dataset.view);
-    return;
-  }
+  // Bottom nav
+  if (el.classList.contains('nav-btn')) { navigate(el.dataset.view); return; }
 
   switch (action) {
 
-    // ---- Today actions ----
+    // ── Today / Action-sheet: core status actions ──────────
 
-    case 'start-workout': {
-      const ds  = el.dataset.date;
-      Store.setDayLog(ds, { status: 'completed', completedAt: new Date().toISOString() });
-      // Phase 2 will open the detailed workout logger here
-      renderToday();
-      break;
-    }
-
-    case 'skip-workout': {
+    case 'do-start': {
       const ds = el.dataset.date;
-      Store.setDayLog(ds, { status: 'skipped', skippedAt: new Date().toISOString() });
-      renderToday();
+      completeDay(ds);
+      hideModal();
+      // If the action was taken from the schedule, re-render schedule
+      // otherwise re-render today. We refresh the current view.
+      refresh();
       break;
     }
 
-    case 'undo-workout': {
-      const ds   = el.dataset.date;
-      const logs = Store.getLogs();
-      delete logs[ds];
-      Store.set(Store.KEYS.LOGS, logs);
-      renderToday();
+    case 'do-skip': {
+      const ds = el.dataset.date;
+      skipDay(ds);
+      hideModal();
+      refresh();
       break;
     }
 
-    case 'open-move-modal': {
+    case 'do-undo': {
+      const ds = el.dataset.date;
+      undoDay(ds);
+      hideModal();
+      refresh();
+      break;
+    }
+
+    case 'do-undo-move': {
+      const ds  = el.dataset.date;
+      let   log;
+      try { log = JSON.parse(el.dataset.log || 'null'); } catch { log = null; }
+      undoMove(ds, log);
+      hideModal();
+      refresh();
+      break;
+    }
+
+    // ── Modal openers ──────────────────────────────────────
+
+    case 'open-move': {
       openMoveModal(el.dataset.date);
       break;
     }
 
-    case 'confirm-move': {
-      const toDs = el.dataset.to;
-      if (!state.modalDateStr || !toDs) break;
-      Store.recordMove(state.modalDateStr, toDs);
-      hideModal();
-      renderToday();
+    case 'open-swap': {
+      openSwapModal(el.dataset.date);
+      break;
+    }
+
+    case 'back-to-sheet': {
+      openActionSheet(el.dataset.date);
       break;
     }
 
@@ -933,7 +1092,29 @@ document.addEventListener('click', e => {
       break;
     }
 
-    // ---- Schedule actions ----
+    // ── Confirm move ───────────────────────────────────────
+
+    case 'confirm-move': {
+      const fromDs = el.dataset.from;
+      const toDs   = el.dataset.to;
+      moveWorkout(fromDs, toDs);
+      hideModal();
+      refresh();
+      break;
+    }
+
+    // ── Confirm swap ───────────────────────────────────────
+
+    case 'confirm-swap': {
+      const ds1 = el.dataset.date1;
+      const ds2 = el.dataset.date2;
+      swapWorkouts(ds1, ds2);
+      hideModal();
+      refresh();
+      break;
+    }
+
+    // ── Schedule navigation ────────────────────────────────
 
     case 'sched-nav': {
       state.schedWeekOff += parseInt(el.dataset.delta, 10);
@@ -942,29 +1123,15 @@ document.addEventListener('click', e => {
     }
 
     case 'sched-tap': {
-      // For Phase 1, tapping a schedule day briefly highlights it.
-      // Phase 2 will navigate to a detailed day view.
-      const ds      = el.dataset.date;
-      const d       = fromDateStr(ds);
-      const wkt     = getScheduledWorkout(d);
-      const log     = Store.getDayLog(ds);
-      const status  = log?.status || 'pending';
-      const isToday = ds === toDateStr(today());
-
-      if (isToday) {
-        navigate('today');
-      }
-      // Future phases: navigate to day detail
+      openActionSheet(el.dataset.date);
       break;
     }
 
-    // ---- Settings actions ----
+    // ── Settings ───────────────────────────────────────────
 
     case 'update-start': {
       const val = document.getElementById('settings-start')?.value;
-      if (!val) break;
-      Store.setProgramStart(fromDateStr(val));
-      renderSettings();
+      if (val) { Store.setProgramStart(fromDateStr(val)); renderSettings(); }
       break;
     }
 
@@ -974,18 +1141,8 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'reset-data': {
-      state.resetConfirm = true;
-      renderSettings();
-      break;
-    }
-
-    case 'cancel-reset': {
-      state.resetConfirm = false;
-      renderSettings();
-      break;
-    }
-
+    case 'reset-data':    { state.resetConfirm = true;  renderSettings(); break; }
+    case 'cancel-reset':  { state.resetConfirm = false; renderSettings(); break; }
     case 'confirm-reset': {
       Store.clearAll();
       state.resetConfirm = false;
@@ -995,17 +1152,14 @@ document.addEventListener('click', e => {
   }
 });
 
-// Close modal when tapping overlay
-document.getElementById('overlay').addEventListener('click', () => {
-  if (state.modalOpen) hideModal();
-});
+// Close modal on overlay tap
+$id('overlay').addEventListener('click', () => { if (state.modalPage) hideModal(); });
 
 // ============================================================
 //  INIT
 // ============================================================
 
 function init() {
-  // Default program start to last Monday if not yet set
   if (!Store.getProgramStart()) {
     Store.setProgramStart(getMondayOf(today()));
   }
