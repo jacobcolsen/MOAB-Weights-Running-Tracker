@@ -956,3 +956,207 @@ input[type="date"]:focus { border-color: var(--accent); }
   padding: 4px 14px;
   margin-bottom: 16px;
 }
+
+/* ============================================================
+   PHASE 4 — Run plan, logging, pace targets
+   ============================================================ */
+
+/* Modal scroll (needed for run log form) */
+.modal {
+  max-height: calc(88dvh - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Settings form extras */
+.form-textarea {
+  height: auto;
+  min-height: 72px;
+  padding: 12px 16px;
+  resize: none;
+  line-height: 1.5;
+  font-family: inherit;
+}
+.form-label-opt {
+  font-weight: 400;
+  font-size: 10px;
+  color: #484848;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- Effort picker ---------- */
+.effort-picker {
+  display: flex;
+  gap: 5px;
+}
+.effort-btn {
+  flex: 1;
+  padding: 10px 2px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px;
+  color: #666;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.effort-btn.selected {
+  background: var(--run-bg);
+  border-color: var(--run-border);
+  color: var(--run-fg);
+}
+.effort-btn:active { opacity: 0.7; }
+
+/* ---------- Run plan card (Today view) ---------- */
+.run-plan-card {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.run-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.run-plan-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #f0f0f0;
+}
+.run-week-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--run-fg);
+  background: rgba(244,63,94,.12);
+  padding: 3px 9px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.run-focus-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--run-fg);
+  opacity: 0.75;
+  margin-bottom: 12px;
+}
+.run-structure {
+  margin-bottom: 12px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.run-struct-row {
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  line-height: 1.45;
+}
+.run-struct-row:last-child { border-bottom: none; }
+.run-struct-row.warmup,
+.run-struct-row.cooldown { color: #666; }
+.run-struct-row.main     { color: #e8e8e8; font-weight: 600; }
+
+/* ---------- Pace targets ---------- */
+.pace-targets {
+  background: rgba(0,0,0,.25);
+  border-radius: 10px;
+  padding: 2px 12px;
+}
+.pace-target-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  font-size: 13px;
+}
+.pace-target-row:last-child { border-bottom: none; }
+.pace-label { color: #666; }
+.pace-val   { color: var(--run-fg); font-weight: 700; font-feature-settings: 'tnum'; }
+.pace-no-goal {
+  font-size: 12px;
+  color: #484848;
+  font-style: italic;
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* ---------- Run log done summary ---------- */
+.run-log-summary {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  padding: 4px 16px;
+  margin: 12px 0;
+}
+.rls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  font-size: 14px;
+}
+.rls-row:last-child { border-bottom: none; }
+.rls-row span:first-child  { color: #666; }
+.rls-row span:last-child   { color: #e8e8e8; font-weight: 600; font-feature-settings: 'tnum'; }
+.rls-splits span:last-child { font-size: 12px; color: #999; font-weight: 400; }
+.rls-notes {
+  font-size: 13px;
+  color: #777;
+  font-style: italic;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255,255,255,.05);
+  line-height: 1.5;
+}
+
+/* ---------- 6-week plan (Workouts tab) ---------- */
+.run-6wk-plan {
+  border-top: 1px solid rgba(255,255,255,.07);
+  padding-top: 4px;
+}
+.run-plan-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 6px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  border-radius: 8px;
+}
+.run-plan-row:last-child { border-bottom: none; }
+.run-plan-row.is-current {
+  background: rgba(244,63,94,.07);
+  border-bottom-color: transparent;
+}
+.run-plan-row-wk {
+  font-size: 10px;
+  font-weight: 800;
+  color: #444;
+  min-width: 26px;
+  padding-top: 3px;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.run-plan-row.is-current .run-plan-row-wk { color: var(--run-fg); }
+.run-plan-row-body { flex: 1; min-width: 0; }
+.run-plan-row-title  { font-size: 13px; font-weight: 700; color: #ccc; }
+.run-plan-row-detail { font-size: 12px; color: #555; margin-top: 2px; line-height: 1.4; }
+.run-plan-row.is-current .run-plan-row-title  { color: #f0f0f0; }
+.run-plan-row.is-current .run-plan-row-detail { color: #888; }
+.run-current-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--run-fg);
+  background: rgba(244,63,94,.15);
+  border: 1px solid rgba(244,63,94,.25);
+  padding: 2px 7px;
+  border-radius: 6px;
+  align-self: center;
+  flex-shrink: 0;
+  letter-spacing: 0.05em;
+}

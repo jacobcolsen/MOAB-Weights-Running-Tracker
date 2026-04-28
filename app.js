@@ -217,6 +217,31 @@ const CATEGORY_CLASS = {
 };
 
 // ============================================================
+//  RUN PLAN — 6-week rotating cycle  (Phase 4)
+//  Weeks repeat: week 7 = week 1, etc.
+//  run_a = Tuesday speed day · run_b = Thursday tempo/pace day
+// ============================================================
+
+const RUN_PLAN = {
+  run_a: [
+    { week:1, title:'6 × 400m',          main:'6 × 400m hard',                       rest:'90 sec rest',  focus:'VO₂ Max'          },
+    { week:2, title:'8 × 400m',          main:'8 × 400m hard',                       rest:'90 sec rest',  focus:'Speed Volume'     },
+    { week:3, title:'4 × 800m',          main:'4 × 800m hard',                       rest:'2 min rest',   focus:'Speed Endurance'  },
+    { week:4, title:'6 × 400m Fast',     main:'6 × 400m hard',                       rest:'75 sec rest',  focus:'Speed · Less Rest'},
+    { week:5, title:'5 × 800m',          main:'5 × 800m hard',                       rest:'2 min rest',   focus:'Speed Endurance'  },
+    { week:6, title:'2-Mile Time Trial', main:'2-mile time trial — best effort', rest:'', focus:'Race Effort', isTrial:true },
+  ],
+  run_b: [
+    { week:1, title:'1.5 Mi Tempo',   main:'1.5 miles comfortably hard',                    rest:'',          focus:'Lactate Threshold'    },
+    { week:2, title:'2 Mi @ Goal+15', main:'2 miles at goal pace + 15–20 sec/mile',          rest:'',          focus:'Pace Control'         },
+    { week:3, title:'20 Min Tempo',   main:'20 min steady tempo',                            rest:'',          focus:'Aerobic Threshold'    },
+    { week:4, title:'1 + 1 Mile',     main:'1 mile easy, then 1 mile hard',                  rest:'',          focus:'Negative Split'       },
+    { week:5, title:'2 × 1 Mile',     main:'2 × 1 mile at strong controlled pace',          rest:'3 min rest', focus:'Race Pace Endurance' },
+    { week:6, title:'Easy + Strides', main:'Easy recovery run + 4–6 × 20 sec strides',       rest:'',          focus:'Recovery'             },
+  ],
+};
+
+// ============================================================
 //  STORAGE
 // ============================================================
 
@@ -224,8 +249,11 @@ const Store = {
   KEYS: {
     START:       'moab_start',
     LOGS:        'moab_day_logs',
-    ASSIGNMENTS: 'moab_assignments',  // date-specific workout overrides
+    ASSIGNMENTS: 'moab_assignments',
     UNIT:        'moab_unit',
+    RUN_GOAL:    'moab_run_goal',
+    RUN_CURRENT: 'moab_run_current',
+    RUN_LOGS:    'moab_run_logs',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -294,6 +322,26 @@ const Store = {
   getTotalCompleted() {
     const logs = this.getLogs();
     return Object.values(logs).filter(l => l?.status === 'completed').length;
+  },
+
+  // ---- Run goal / current times ----
+  getRunGoal()    { return this._get(this.KEYS.RUN_GOAL)    || ''; },
+  setRunGoal(t)   { this._set(this.KEYS.RUN_GOAL, t); },
+  getRunCurrent() { return this._get(this.KEYS.RUN_CURRENT) || ''; },
+  setRunCurrent(t){ this._set(this.KEYS.RUN_CURRENT, t); },
+
+  // ---- Run session logs: { time, distance, splits, effort, notes, completedAt } ----
+  getRunLogs()        { return this._get(this.KEYS.RUN_LOGS) || {}; },
+  getRunLog(ds)       { return this.getRunLogs()[ds] || null; },
+  setRunLog(ds, data) {
+    const l = this.getRunLogs();
+    l[ds] = data;
+    this._set(this.KEYS.RUN_LOGS, l);
+  },
+  deleteRunLog(ds) {
+    const l = this.getRunLogs();
+    delete l[ds];
+    this._set(this.KEYS.RUN_LOGS, l);
   },
 
   clearAll() {
@@ -428,6 +476,32 @@ function findNextWorkout(fromDate) {
 }
 
 // ============================================================
+//  RUN UTILITIES
+// ============================================================
+
+function parseMmSs(str) {
+  const parts = (str || '').trim().split(':').map(Number);
+  if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+  return parts[0] * 60 + parts[1];
+}
+
+function formatMmSs(totalSecs) {
+  const abs = Math.abs(totalSecs);
+  const m = Math.floor(abs / 60);
+  const s = Math.round(abs % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function getRunCycleWeek(programWeek) {
+  return ((programWeek - 1) % 6) + 1;
+}
+
+function getRunWorkout(wktKey, programWeek) {
+  const idx = (programWeek - 1) % 6;
+  return RUN_PLAN[wktKey]?.[idx] || null;
+}
+
+// ============================================================
 //  APP STATE
 // ============================================================
 
@@ -543,6 +617,7 @@ function renderToday() {
 }
 
 function buildActiveWorkout(ds, wkt) {
+  if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
   const exercises = PROGRAM[wkt.key];
   const exSection = exercises ? `
     <div class="today-ex-list">
@@ -582,21 +657,112 @@ function buildActiveWorkout(ds, wkt) {
   `;
 }
 
+function buildActiveRunWorkout(ds, wkt) {
+  const programWeek = getProgramWeek(fromDateStr(ds));
+  const cycleWeek   = getRunCycleWeek(programWeek);
+  const runWkt      = getRunWorkout(wkt.key, programWeek);
+  const goalStr     = Store.getRunGoal();
+
+  const mainDetail = runWkt
+    ? `${runWkt.main}${runWkt.rest ? ` · ${runWkt.rest}` : ''}`
+    : 'See workout plan';
+
+  const btnLabel = runWkt?.isTrial ? 'Log Time Trial' : 'Log Run';
+
+  return `
+    <div class="workout-card ${wkt.color}">
+      <div class="type-pill ${wkt.color}">${wkt.emoji}&nbsp; ${labelForType(wkt.key)}</div>
+      <div class="workout-card-title">${wkt.name}</div>
+      <div class="workout-card-sub">${wkt.sub}</div>
+    </div>
+
+    <div class="run-plan-card">
+      <div class="run-plan-header">
+        <div class="run-plan-title">${runWkt?.title || 'Run Workout'}</div>
+        <div class="run-week-badge">Cycle Wk ${cycleWeek}/6</div>
+      </div>
+      <div class="run-focus-tag">${runWkt?.focus || ''}</div>
+      <div class="run-structure">
+        <div class="run-struct-row warmup">Warm-up &nbsp;·&nbsp; 5–10 min easy jog</div>
+        <div class="run-struct-row main">${mainDetail}</div>
+        <div class="run-struct-row cooldown">Cooldown &nbsp;·&nbsp; 5–10 min easy jog</div>
+      </div>
+      ${buildPaceTargets(wkt.key, runWkt, goalStr)}
+    </div>
+
+    <button class="btn btn-primary" data-action="do-start" data-date="${ds}">${btnLabel}</button>
+
+    <div class="btn-row-3 mt-10">
+      <button class="btn btn-secondary btn-sm" data-action="do-skip"   data-date="${ds}">Skip</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+    </div>
+  `;
+}
+
+function buildPaceTargets(wktKey, runWkt, goalStr) {
+  const goalSecs = parseMmSs(goalStr);
+  if (!goalSecs) {
+    return `<div class="pace-no-goal">Set your goal 2-mile time in Settings to see pace targets.</div>`;
+  }
+  const pacePerMile = goalSecs / 2;
+  const rows = [{ label: 'Goal race pace', val: `${formatMmSs(pacePerMile)}/mi` }];
+
+  if (wktKey === 'run_a') {
+    if (runWkt?.isTrial) {
+      rows.push({ label: 'Target', val: `${formatMmSs(pacePerMile)}/mi — race effort` });
+    } else {
+      rows.push({ label: 'Interval target', val: `${formatMmSs(pacePerMile - 10)}–${formatMmSs(pacePerMile - 5)}/mi` });
+    }
+  } else {
+    rows.push({ label: 'Tempo target',   val: `${formatMmSs(pacePerMile + 15)}–${formatMmSs(pacePerMile + 20)}/mi` });
+    rows.push({ label: 'Easy pace',      val: `${formatMmSs(pacePerMile + 60)}–${formatMmSs(pacePerMile + 90)}/mi` });
+  }
+
+  return `
+    <div class="pace-targets">
+      ${rows.map(r => `
+        <div class="pace-target-row">
+          <span class="pace-label">${r.label}</span>
+          <span class="pace-val">${r.val}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function buildDoneState(ds, wkt, log) {
-  const time = log?.completedAt
+  const time   = log?.completedAt
     ? new Date(log.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '';
-  const next = findNextWorkout(today());
+  const isRun  = wkt.key === 'run_a' || wkt.key === 'run_b';
+  const runLog = isRun ? Store.getRunLog(ds) : null;
+  const next   = findNextWorkout(today());
+
+  const runSummary = runLog ? `
+    <div class="run-log-summary">
+      ${runLog.time     ? `<div class="rls-row"><span>Time</span><span>${runLog.time}</span></div>` : ''}
+      ${runLog.distance ? `<div class="rls-row"><span>Distance</span><span>${runLog.distance} mi</span></div>` : ''}
+      ${runLog.effort != null ? `<div class="rls-row"><span>Effort</span><span>${runLog.effort}/10</span></div>` : ''}
+      ${runLog.splits   ? `<div class="rls-row rls-splits"><span>Splits</span><span>${runLog.splits}</span></div>` : ''}
+      ${runLog.notes    ? `<div class="rls-notes">${runLog.notes}</div>` : ''}
+    </div>
+  ` : '';
+
   return `
     <div class="done-banner">
       <div class="done-icon">✅</div>
       <div class="done-title">${wkt.name} Done</div>
       <div class="done-sub">${time ? `Finished at ${time}` : 'Completed today'}</div>
     </div>
+    ${runSummary}
     ${nextCard(next)}
     <div class="btn-row mt-16">
       <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+      ${isRun
+        ? `<button class="btn btn-secondary btn-sm" data-action="do-start" data-date="${ds}">Edit Log</button>`
+        : `<button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>`
+      }
     </div>
   `;
 }
@@ -796,25 +962,50 @@ function renderWorkouts() {
     `;
   }).join('');
 
-  const runCard = `
+  const cycleWeek  = getRunCycleWeek(getProgramWeek(today()));
+
+  function runPlanRows(key) {
+    return RUN_PLAN[key].map((r, i) => {
+      const wkNum     = i + 1;
+      const isCurrent = wkNum === cycleWeek;
+      return `
+        <div class="run-plan-row${isCurrent ? ' is-current' : ''}">
+          <div class="run-plan-row-wk">Wk ${wkNum}</div>
+          <div class="run-plan-row-body">
+            <div class="run-plan-row-title">${r.title}</div>
+            <div class="run-plan-row-detail">${r.main}${r.rest ? ` · ${r.rest}` : ''}</div>
+          </div>
+          ${isCurrent ? '<div class="run-current-badge">NOW</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  const runCards = `
     <div class="workout-library-card run">
       <div class="wlc-header">
-        <div class="type-pill run">🏃&nbsp; Run</div>
-        <div class="wlc-day">Tue &amp; Thu</div>
+        <div class="type-pill run">🏃&nbsp; Run A</div>
+        <div class="wlc-day">Tuesday · Speed</div>
       </div>
-      <div class="wl-title">Run Training</div>
-      <div class="wl-sub">12-week 2-mile improvement plan</div>
-      <div class="run-note mt-12">
-        <div class="run-note-row"><span class="run-day-label">Tuesday</span> Speed · Intervals · Lactate threshold</div>
-        <div class="run-note-row"><span class="run-day-label">Thursday</span> Tempo · Aerobic base · Easy miles</div>
+      <div class="wl-title">Speed &amp; Intervals</div>
+      <div class="wl-sub">VO₂ Max · Speed Endurance · Race Pace</div>
+      <div class="run-6wk-plan mt-12">${runPlanRows('run_a')}</div>
+    </div>
+    <div class="workout-library-card run">
+      <div class="wlc-header">
+        <div class="type-pill run">🏃&nbsp; Run B</div>
+        <div class="wlc-day">Thursday · Tempo</div>
       </div>
+      <div class="wl-title">Tempo &amp; Pace Work</div>
+      <div class="wl-sub">Lactate Threshold · Aerobic Base · Pacing</div>
+      <div class="run-6wk-plan mt-12">${runPlanRows('run_b')}</div>
     </div>
   `;
 
   setView(`
     <div class="pad fade-up pb-safe">
       ${strengthCards}
-      ${runCard}
+      ${runCards}
     </div>
   `);
 }
@@ -916,8 +1107,12 @@ function renderSettings() {
   showNav(true);
   setActiveNav('settings');
 
-  const start = Store.getProgramStart();
-  const unit  = Store.getUnit();
+  const start      = Store.getProgramStart();
+  const unit       = Store.getUnit();
+  const runCurrent = Store.getRunCurrent();
+  const runGoal    = Store.getRunGoal();
+  const goalSecs   = parseMmSs(runGoal);
+  const goalPace   = goalSecs ? `${formatMmSs(goalSecs / 2)}/mi` : null;
 
   const resetHtml = state.resetConfirm ? `
     <p class="text-sm text-muted mb-12" style="padding:0 4px;line-height:1.5;">
@@ -962,6 +1157,29 @@ function renderSettings() {
       </div>
 
       <div class="settings-section">
+        <div class="settings-group-label">Running</div>
+        <div class="form-group">
+          <label class="form-label">Current 2-Mile Time <span class="form-label-opt">(MM:SS)</span></label>
+          <input type="text" id="settings-run-current" class="form-input"
+                 placeholder="e.g. 17:30" inputmode="numeric" value="${runCurrent}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Goal 2-Mile Time <span class="form-label-opt">(MM:SS)</span></label>
+          <input type="text" id="settings-run-goal" class="form-input"
+                 placeholder="e.g. 14:00" inputmode="numeric" value="${runGoal}">
+        </div>
+        ${goalPace ? `
+          <div class="settings-row" style="margin-bottom:8px;">
+            <span class="settings-row-label">Goal Pace</span>
+            <span class="settings-row-value" style="color:var(--run-fg);font-weight:700;">${goalPace}</span>
+          </div>
+        ` : ''}
+        <button class="btn btn-secondary btn-sm" data-action="update-run-times">
+          Save Running Times
+        </button>
+      </div>
+
+      <div class="settings-section">
         <div class="settings-group-label">Default Weekly Schedule</div>
         ${Object.entries(DEFAULT_SCHEDULE).map(([dow, key]) => {
           const wkt = WORKOUT_TYPES[key];
@@ -985,7 +1203,7 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 2.0</span>
+          <span class="settings-row-value">Phase 4.0</span>
         </div>
         <div class="mt-12">${resetHtml}</div>
       </div>
@@ -1149,6 +1367,63 @@ function openSwapModal(ds) {
   `);
 }
 
+// ---- Run log modal ----
+function openRunLogModal(ds) {
+  const wkt         = Store.getWorkoutInfo(ds);
+  const programWeek = getProgramWeek(fromDateStr(ds));
+  const cycleWeek   = getRunCycleWeek(programWeek);
+  const runWkt      = getRunWorkout(wkt.key, programWeek);
+  const existing    = Store.getRunLog(ds);
+
+  const effortBtns = Array.from({ length: 10 }, (_, i) => {
+    const v   = i + 1;
+    const sel = existing?.effort === v ? ' selected' : '';
+    return `<button class="effort-btn${sel}" data-action="set-effort" data-val="${v}">${v}</button>`;
+  }).join('');
+
+  showModal(`
+    <div class="modal-title">${runWkt?.isTrial ? '2-Mile Time Trial' : 'Log Run'}</div>
+    <div class="modal-sub">
+      ${wkt.name} &nbsp;·&nbsp; Cycle Wk ${cycleWeek} &nbsp;·&nbsp; ${runWkt?.title || ''}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Total Time <span class="form-label-opt">(MM:SS)</span></label>
+      <input type="text" id="rl-time" class="form-input"
+             placeholder="16:42" inputmode="numeric"
+             value="${existing?.time || ''}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Distance <span class="form-label-opt">(miles)</span></label>
+      <input type="number" id="rl-dist" class="form-input"
+             placeholder="2.0" step="0.01" min="0" max="26"
+             value="${existing?.distance || ''}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Splits <span class="form-label-opt">(optional · e.g. 1:45, 1:48)</span></label>
+      <input type="text" id="rl-splits" class="form-input"
+             placeholder="1:45, 1:48, 1:52…"
+             value="${existing?.splits || ''}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Perceived Effort <span class="form-label-opt">(1–10)</span></label>
+      <div class="effort-picker">${effortBtns}</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes <span class="form-label-opt">(optional)</span></label>
+      <textarea id="rl-notes" class="form-input form-textarea"
+                placeholder="How did it feel?">${existing?.notes || ''}</textarea>
+    </div>
+
+    <button class="btn btn-primary" data-action="save-run-log" data-date="${ds}">Save Run</button>
+    <button class="btn btn-ghost mt-8" data-action="close-modal">Cancel</button>
+  `);
+}
+
 // ============================================================
 //  NAVIGATION
 // ============================================================
@@ -1188,12 +1463,15 @@ document.addEventListener('click', e => {
     // ── Today / Action-sheet: core status actions ──────────
 
     case 'do-start': {
-      const ds = el.dataset.date;
-      completeDay(ds);
-      hideModal();
-      // If the action was taken from the schedule, re-render schedule
-      // otherwise re-render today. We refresh the current view.
-      refresh();
+      const ds  = el.dataset.date;
+      const wkt = Store.getWorkoutInfo(ds);
+      if (wkt.key === 'run_a' || wkt.key === 'run_b') {
+        openRunLogModal(ds);
+      } else {
+        completeDay(ds);
+        hideModal();
+        refresh();
+      }
       break;
     }
 
@@ -1290,6 +1568,51 @@ document.addEventListener('click', e => {
 
     case 'set-unit': {
       Store.setUnit(el.dataset.unit);
+      renderSettings();
+      break;
+    }
+
+    // ── Run log ────────────────────────────────────────────
+
+    case 'set-effort': {
+      document.querySelectorAll('.effort-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+      break;
+    }
+
+    case 'save-run-log': {
+      const ds      = el.dataset.date;
+      const time    = document.getElementById('rl-time')?.value.trim()   || '';
+      const dist    = document.getElementById('rl-dist')?.value.trim()   || '';
+      const splits  = document.getElementById('rl-splits')?.value.trim() || '';
+      const notes   = document.getElementById('rl-notes')?.value.trim()  || '';
+      const effortEl = document.querySelector('.effort-btn.selected');
+      const effort  = effortEl ? parseInt(effortEl.dataset.val, 10) : null;
+
+      Store.setRunLog(ds, { time, distance: dist, splits, effort, notes, completedAt: new Date().toISOString() });
+
+      // Preserve existing completedAt if already logged (editing case)
+      const existingLog = Store.getDayLog(ds);
+      if (existingLog?.status !== 'completed') completeDay(ds);
+
+      // Auto-record current time on time trial week
+      const wkt         = Store.getWorkoutInfo(ds);
+      const programWeek = getProgramWeek(fromDateStr(ds));
+      const runWkt      = getRunWorkout(wkt.key, programWeek);
+      if (runWkt?.isTrial && parseMmSs(time)) Store.setRunCurrent(time);
+
+      hideModal();
+      refresh();
+      break;
+    }
+
+    // ── Settings ───────────────────────────────────────────
+
+    case 'update-run-times': {
+      const cur  = document.getElementById('settings-run-current')?.value.trim() || '';
+      const goal = document.getElementById('settings-run-goal')?.value.trim()    || '';
+      if (cur)  Store.setRunCurrent(cur);
+      if (goal) Store.setRunGoal(goal);
       renderSettings();
       break;
     }
