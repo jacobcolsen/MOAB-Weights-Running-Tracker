@@ -125,6 +125,50 @@ const CATEGORY_CLASS = {
 };
 
 // ============================================================
+//  PROGRESSION — Increment rules per exercise  (Phase 7)
+//  Upper-body compounds +5 lb / +2.5 kg
+//  Lower-body compounds +10 lb / +5 kg
+//  Accessories          +2.5 lb / +1.25 kg
+// ============================================================
+
+const PROGRESSION_INCREMENT = {
+  lbs: {
+    'Barbell Bench Press':       5,
+    'Incline Dumbbell Press':    5,
+    'Standing Overhead Press':   5,
+    'Barbell Row':               5,
+    'Pull-up / Lat Pulldown':    5,
+    'Deadlift':                 10,
+    'Back Squat':               10,
+    'Romanian Deadlift':        10,
+    'Leg Press':                10,
+    'Side Lateral Raise':        2.5,
+    'Triceps Pressdown / Dips':  2.5,
+    'Seated Cable Row':          2.5,
+    'Barbell / Dumbbell Curl':   2.5,
+    'Calf Raise':                2.5,
+    'Weighted Cable Crunch':     2.5,
+  },
+  kg: {
+    'Barbell Bench Press':       2.5,
+    'Incline Dumbbell Press':    2.5,
+    'Standing Overhead Press':   2.5,
+    'Barbell Row':               2.5,
+    'Pull-up / Lat Pulldown':    2.5,
+    'Deadlift':                  5,
+    'Back Squat':                5,
+    'Romanian Deadlift':         5,
+    'Leg Press':                 5,
+    'Side Lateral Raise':        1.25,
+    'Triceps Pressdown / Dips':  1.25,
+    'Seated Cable Row':          1.25,
+    'Barbell / Dumbbell Curl':   1.25,
+    'Calf Raise':                1.25,
+    'Weighted Cable Crunch':     1.25,
+  },
+};
+
+// ============================================================
 //  RUN PLAN — 6-week rotating cycle  (Phase 4)
 //  Weeks repeat: week 7 = week 1, etc.
 //  run_a = Tuesday speed day · run_b = Thursday tempo/pace day
@@ -450,6 +494,105 @@ function computeAvgPace(timeStr, distStr) {
 }
 
 // ============================================================
+//  PROGRESSIVE OVERLOAD  (Phase 7)
+// ============================================================
+
+function parseRepRange(repsStr) {
+  // handles en-dash (–) and regular hyphen (-)
+  const parts = String(repsStr).split(/[–\-]/).map(s => parseInt(s.trim(), 10));
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return { min: parts[0], max: parts[1] };
+  }
+  const n = parseInt(String(repsStr), 10);
+  return { min: isNaN(n) ? 1 : n, max: isNaN(n) ? 99 : n };
+}
+
+function computeProgression(exName, repRangeStr) {
+  const unit    = Store.getUnit();
+  const allLogs = Store.getStrengthLogs();
+  const entries = Object.entries(allLogs)
+    .sort((a, b) => b[0].localeCompare(a[0]));
+
+  // collect up to 3 most-recent sessions that logged done sets for this exercise
+  const history = [];
+  for (const [, log] of entries) {
+    const ex       = (log.exercises || []).find(e => e.name === exName);
+    const doneSets = ex ? (ex.sets || []).filter(s => s.done && s.weight && s.reps) : [];
+    if (doneSets.length > 0) {
+      history.push(doneSets);
+      if (history.length >= 3) break;
+    }
+  }
+
+  if (history.length === 0) return null;
+
+  const range     = parseRepRange(repRangeStr);
+  const incMap    = PROGRESSION_INCREMENT[unit] || PROGRESSION_INCREMENT.lbs;
+  const increment = (exName in incMap) ? incMap[exName] : (unit === 'kg' ? 2.5 : 5);
+  const latest    = history[0];
+  const latestW   = parseFloat(latest[0].weight);
+  if (isNaN(latestW)) return null;
+
+  const lastRepsStr = latest.map(s => s.reps).join(', ');
+
+  // Rule 3: 3 consecutive failures at the same weight → 10% deload
+  if (history.length >= 3) {
+    const sameW = history.every(sets => {
+      const w = parseFloat(sets[0].weight);
+      return !isNaN(w) && Math.abs(w - latestW) < 0.5;
+    });
+    const failedAll = history.every(sets =>
+      sets.some(s => parseInt(s.reps, 10) < range.min)
+    );
+    if (sameW && failedAll) {
+      const deloadW = Math.round(latestW * 0.9);
+      return {
+        lastWeight: latest[0].weight, lastReps: lastRepsStr,
+        recommendation: String(deloadW),
+        reason: '10% deload — 3 failed sessions',
+        rule:   'deload',
+        detail: `You've missed the minimum (${range.min} reps) at ${latestW} ${unit} three sessions in a row. A 10% deload resets your baseline — come back stronger.`,
+      };
+    }
+  }
+
+  const allHitMax    = latest.every(s => parseInt(s.reps, 10) >= range.max);
+  const anyMissedMin = latest.some(s  => parseInt(s.reps, 10) < range.min);
+
+  // Rule 1: all sets hit top of range → increase weight
+  if (allHitMax) {
+    const nextW = latestW + increment;
+    return {
+      lastWeight: latest[0].weight, lastReps: lastRepsStr,
+      recommendation: String(nextW),
+      reason: `+${increment} ${unit} — hit top of range`,
+      rule:   'increase',
+      detail: `All sets hit ${range.max}+ reps (top of range). Add ${increment} ${unit} next session.`,
+    };
+  }
+
+  // Rule 2: missed minimum → stay
+  if (anyMissedMin) {
+    return {
+      lastWeight: latest[0].weight, lastReps: lastRepsStr,
+      recommendation: latest[0].weight,
+      reason: 'Same weight — missed minimum reps',
+      rule:   'maintain',
+      detail: `A set fell below ${range.min} reps. Keep ${latestW} ${unit} until you hit ${range.min}+ reps on every set.`,
+    };
+  }
+
+  // In range but not at top → stay and work up
+  return {
+    lastWeight: latest[0].weight, lastReps: lastRepsStr,
+    recommendation: latest[0].weight,
+    reason: `Same weight — not at ${range.max} reps yet`,
+    rule:   'maintain',
+    detail: `Sets were in range (${range.min}–${range.max} reps) but haven't hit the top. Keep the weight and aim for ${range.max} reps next time.`,
+  };
+}
+
+// ============================================================
 //  REST TIMER
 // ============================================================
 
@@ -645,17 +788,28 @@ function renderToday() {
 function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
   const exercises = PROGRAM[wkt.key];
+  const unit = Store.getUnit();
   const exSection = exercises ? `
     <div class="today-ex-list">
       ${exercises.map(e => {
-        const cls = CATEGORY_CLASS[e.category] || 'legs';
+        const cls  = CATEGORY_CLASS[e.category] || 'legs';
+        const prog = computeProgression(e.name, e.reps);
+        const progHtml = prog ? `
+          <div class="prog-today-hint">
+            <span class="prog-today-rec">${prog.recommendation} ${unit}</span>
+            <span class="prog-today-rule ${prog.rule}">${prog.reason}</span>
+          </div>
+        ` : '';
         return `
-          <div class="wkt-ex-row">
-            <div class="ex-row-left">
-              <span class="cat-chip ${cls}">${e.category}</span>
-              <span class="ex-name">${e.name}</span>
+          <div class="wkt-ex-wrap">
+            <div class="wkt-ex-row">
+              <div class="ex-row-left">
+                <span class="cat-chip ${cls}">${e.category}</span>
+                <span class="ex-name">${e.name}</span>
+              </div>
+              <div class="ex-vol">${e.sets}×${e.reps}</div>
             </div>
-            <div class="ex-vol">${e.sets}×${e.reps}</div>
+            ${progHtml}
           </div>
         `;
       }).join('')}
@@ -757,6 +911,30 @@ function buildPaceTargets(wktKey, runWkt, goalStr) {
   `;
 }
 
+function buildStrengthNextSession(wktKey) {
+  const exercises = PROGRAM[wktKey] || [];
+  const unit      = Store.getUnit();
+  const ICON      = { increase: '↑', deload: '↓', maintain: '→' };
+  const rows = exercises.map(ex => {
+    const prog = computeProgression(ex.name, ex.reps);
+    if (!prog) return '';
+    const icon = ICON[prog.rule] || '→';
+    return `
+      <div class="next-sess-row">
+        <span class="next-sess-name">${ex.name}</span>
+        <span class="next-sess-rec ${prog.rule}">${icon} ${prog.recommendation} ${unit}</span>
+      </div>
+    `;
+  }).filter(Boolean);
+  if (!rows.length) return '';
+  return `
+    <div class="next-session-card">
+      <div class="next-session-label">Next Session</div>
+      ${rows.join('')}
+    </div>
+  `;
+}
+
 function buildDoneState(ds, wkt, log) {
   const time       = log?.completedAt
     ? new Date(log.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -766,6 +944,7 @@ function buildDoneState(ds, wkt, log) {
   const runLog     = isRun      ? Store.getRunLog(ds)      : null;
   const strLog     = isStrength ? Store.getStrengthLog(ds) : null;
   const next       = findNextWorkout(today());
+  const nextSessHtml = isStrength ? buildStrengthNextSession(wkt.key) : '';
 
   // Normalise splits — Phase 4 stored a string, Phase 6 stores an array
   const splitsArr = runLog
@@ -811,6 +990,7 @@ function buildDoneState(ds, wkt, log) {
     </div>
     ${runSummary}
     ${strSummary}
+    ${nextSessHtml}
     ${nextCard(next)}
     <div class="btn-row mt-16">
       <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
@@ -899,20 +1079,40 @@ function renderStrengthLogger(ds, wkt) {
   const exercises = PROGRAM[wkt.key] || [];
 
   const exCards = exercises.map((ex, i) => {
-    const last   = Store.getLastSetForExercise(ex.name);
+    const prog   = computeProgression(ex.name, ex.reps);
     const catCls = CATEGORY_CLASS[ex.category] || 'legs';
-    const lastLbl = last
-      ? `Last: ${last.weight} ${unit} × ${last.reps}`
-      : 'No previous data';
+    const lastW  = prog?.lastWeight || '';
+    const lastR  = prog ? (prog.lastReps.split(',')[0]?.trim() || '') : '';
+
+    const progHtml = prog ? `
+      <div class="prog-widget">
+        <div class="prog-cols">
+          <div class="prog-col">
+            <div class="prog-col-lbl">Last</div>
+            <div class="prog-col-val">${prog.lastWeight} ${unit}</div>
+            <div class="prog-col-sub">${prog.lastReps} reps</div>
+          </div>
+          <div class="prog-col">
+            <div class="prog-col-lbl">Next</div>
+            <div class="prog-col-val ${prog.rule}">${prog.recommendation} ${unit}</div>
+            <div class="prog-col-sub">${prog.reason}</div>
+          </div>
+        </div>
+        <details class="prog-why">
+          <summary>Why?</summary>
+          <div class="prog-why-body">${prog.detail}</div>
+        </details>
+      </div>
+    ` : `<div class="prog-widget-empty">No previous data</div>`;
 
     const setRows = Array.from({ length: ex.sets }, (_, j) => `
       <div class="logger-set-row" id="set-${i}-${j}">
         <span class="set-num">${j + 1}</span>
         <input type="number" class="set-weight" id="w-${i}-${j}"
-               placeholder="${last?.weight || ''}" inputmode="decimal" min="0">
+               placeholder="${lastW}" inputmode="decimal" min="0">
         <span class="set-unit">${unit}</span>
         <input type="number" class="set-reps" id="r-${i}-${j}"
-               placeholder="${last?.reps || ''}" inputmode="numeric" min="0" max="99">
+               placeholder="${lastR}" inputmode="numeric" min="0" max="99">
         <span class="set-reps-lbl">reps</span>
         <button class="set-done-btn" data-action="mark-set"
                 data-ex="${i}" data-set="${j}" data-rest="${ex.rest}">○</button>
@@ -929,7 +1129,7 @@ function renderStrengthLogger(ds, wkt) {
           <span class="logger-ex-target">${ex.sets}×${ex.reps}</span>
         </div>
         <div class="logger-ex-hint">${ex.hint}</div>
-        <div class="logger-ex-last">${lastLbl}</div>
+        ${progHtml}
         <div class="logger-sets">${setRows}</div>
         <textarea class="form-input form-textarea logger-notes" id="notes-${i}"
                   placeholder="Notes…"></textarea>
@@ -1526,7 +1726,7 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 4.0</span>
+          <span class="settings-row-value">Phase 7.0</span>
         </div>
         <div class="mt-12">${resetHtml}</div>
       </div>

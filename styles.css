@@ -1530,3 +1530,174 @@ input[type="date"]:focus { border-color: var(--accent); }
   text-align: center;
   font-feature-settings: 'tnum';
 }
+
+/* ============================================================
+   PHASE 7 — Progressive Overload
+   ============================================================ */
+
+/* ---------- Today view: exercise wrap ---------- */
+/* Wrapper lets us put border-bottom after the prog hint, not mid-card */
+.today-ex-list .wkt-ex-wrap {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 4px 0;
+}
+.today-ex-list .wkt-ex-wrap:last-child { border-bottom: none; }
+.today-ex-list .wkt-ex-row {
+  border-bottom: none;
+  padding: 5px 0 2px;
+}
+
+/* ---------- Progression hint row (Today view) ---------- */
+.prog-today-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 4px;
+  flex-wrap: wrap;
+}
+.prog-today-rec {
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  font-feature-settings: 'tnum';
+}
+.prog-today-rule {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 7px;
+}
+.prog-today-rule.increase {
+  background: rgba(74,222,128,.12);
+  color: var(--success);
+}
+.prog-today-rule.maintain {
+  background: rgba(255,255,255,.06);
+  color: #555;
+}
+.prog-today-rule.deload {
+  background: rgba(251,191,36,.12);
+  color: var(--warning);
+}
+
+/* ---------- Progression widget (logger card) ---------- */
+.prog-widget {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 10px 12px 8px;
+  margin-bottom: 10px;
+}
+.prog-widget-empty {
+  font-size: 12px;
+  color: #444;
+  margin-bottom: 10px;
+  padding: 2px 0;
+}
+.prog-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.prog-col-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #444;
+  margin-bottom: 2px;
+}
+.prog-col-val {
+  font-size: 17px;
+  font-weight: 800;
+  color: #888;
+  font-feature-settings: 'tnum';
+  line-height: 1.2;
+}
+.prog-col-val.increase { color: var(--success); }
+.prog-col-val.deload   { color: var(--warning); }
+.prog-col-val.maintain { color: #888; }
+.prog-col-sub {
+  font-size: 11px;
+  color: #555;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+/* ---------- Why? expandable ---------- */
+.prog-why {
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding-top: 6px;
+}
+.prog-why > summary {
+  font-size: 11px;
+  font-weight: 700;
+  color: #444;
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.prog-why > summary::-webkit-details-marker { display: none; }
+.prog-why > summary::before {
+  content: '▸';
+  font-size: 9px;
+  color: #555;
+}
+.prog-why[open] > summary::before { content: '▾'; }
+.prog-why-body {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.55;
+  padding: 6px 0 2px;
+}
+
+/* ---------- Done state: next-session card ---------- */
+.next-session-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  padding: 10px 16px 8px;
+  margin: 12px 0;
+}
+.next-session-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #444;
+  margin-bottom: 6px;
+}
+.next-sess-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.next-sess-row:last-child { border-bottom: none; }
+.next-sess-name {
+  font-size: 12px;
+  color: #888;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 10px;
+}
+.next-sess-rec {
+  font-size: 12px;
+  font-weight: 700;
+  font-feature-settings: 'tnum';
+  flex-shrink: 0;
+}
+.next-sess-rec.increase { color: var(--success); }
+.next-sess-rec.maintain { color: #555; }
+.next-sess-rec.deload   { color: var(--warning); }
