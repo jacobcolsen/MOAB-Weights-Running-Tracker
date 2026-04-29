@@ -207,6 +207,7 @@ const Store = {
     RUN_CURRENT:   'moab_run_current',
     RUN_LOGS:      'moab_run_logs',
     STRENGTH_LOGS: 'moab_strength_logs',
+    WEIGHT_LOG:    'moab_weight_log',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -319,6 +320,16 @@ const Store = {
       bestDs = ds;
     }
     return best;
+  },
+
+  // ---- Body weight log: [{ ds, weight }] sorted oldest first ----
+  getWeightLog() { return this._get(this.KEYS.WEIGHT_LOG) || []; },
+  logBodyWeight(ds, w) {
+    const log = this.getWeightLog();
+    const idx = log.findIndex(e => e.ds === ds);
+    if (idx >= 0) log[idx].weight = w;
+    else { log.push({ ds, weight: w }); log.sort((a, b) => a.ds.localeCompare(b.ds)); }
+    this._set(this.KEYS.WEIGHT_LOG, log);
   },
 
   clearAll() {
@@ -590,6 +601,104 @@ function computeProgression(exName, repRangeStr) {
     rule:   'maintain',
     detail: `Sets were in range (${range.min}–${range.max} reps) but haven't hit the top. Keep the weight and aim for ${range.max} reps next time.`,
   };
+}
+
+// ============================================================
+//  STRENGTH ANALYTICS  (Phase 9)
+// ============================================================
+
+function calc1RM(weight, reps) {
+  const w = parseFloat(weight);
+  const r = parseInt(reps, 10);
+  if (!w || !r || w <= 0 || r <= 0) return null;
+  return Math.round(w * (1 + r / 30));
+}
+
+const PR_LIFTS = [
+  'Barbell Bench Press',
+  'Back Squat',
+  'Deadlift',
+  'Standing Overhead Press',
+  'Barbell Row',
+];
+
+const PR_SHORT = {
+  'Barbell Bench Press':     'Bench',
+  'Back Squat':              'Squat',
+  'Deadlift':                'Deadlift',
+  'Standing Overhead Press': 'OHP',
+  'Barbell Row':             'Row',
+};
+
+const PR_COLOR = {
+  'Barbell Bench Press':     '#fb923c',
+  'Back Squat':              '#4ade80',
+  'Deadlift':                '#4ade80',
+  'Standing Overhead Press': '#fb923c',
+  'Barbell Row':             '#60a5fa',
+};
+
+function getStrengthPRData() {
+  const unit    = Store.getUnit();
+  const entries = Object.entries(Store.getStrengthLogs())
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  const prs = {};
+  for (const name of PR_LIFTS) {
+    prs[name] = { best1RM: 0, bestWeight: 0, bestDate: null, history: [] };
+  }
+
+  for (const [ds, log] of entries) {
+    for (const ex of (log.exercises || [])) {
+      if (!prs[ex.name]) continue;
+      const done = (ex.sets || []).filter(s => s.done && s.weight && s.reps);
+      if (!done.length) continue;
+      let sessionBest = 0;
+      for (const s of done) {
+        const rm = calc1RM(s.weight, s.reps);
+        if (rm && rm > sessionBest) sessionBest = rm;
+        const w = parseFloat(s.weight);
+        if (!isNaN(w) && w > prs[ex.name].bestWeight) prs[ex.name].bestWeight = w;
+      }
+      if (sessionBest > 0) {
+        prs[ex.name].history.push({ ds, est1RM: sessionBest });
+        if (sessionBest > prs[ex.name].best1RM) {
+          prs[ex.name].best1RM  = sessionBest;
+          prs[ex.name].bestDate = ds;
+        }
+      }
+    }
+  }
+  return { prs, unit };
+}
+
+function getWeeklyCompliance(numWeeks) {
+  numWeeks   = numWeeks || 8;
+  const curMon = getMondayOf(today());
+  return Array.from({ length: numWeeks }, (_, w) => {
+    const weekStart = addDays(curMon, -(numWeeks - 1 - w) * 7);
+    let sDone = 0, sTotal = 0, rDone = 0, rTotal = 0, skipped = 0;
+    for (let d = 0; d < 7; d++) {
+      const ds     = toDateStr(addDays(weekStart, d));
+      const wkt    = Store.getWorkoutInfo(ds);
+      const status = Store.getDayLog(ds)?.status || 'planned';
+      if (wkt.key === 'push' || wkt.key === 'pull' || wkt.key === 'legs') {
+        sTotal++;
+        if (status === 'completed') sDone++;
+        if (status === 'skipped')   skipped++;
+      } else if (wkt.key === 'run_a' || wkt.key === 'run_b') {
+        rTotal++;
+        if (status === 'completed') rDone++;
+        if (status === 'skipped')   skipped++;
+      }
+    }
+    return {
+      lbl: `${MONTHS_S[weekStart.getMonth()]} ${weekStart.getDate()}`,
+      weekStart: toDateStr(weekStart),
+      sDone, sTotal, rDone, rTotal, skipped,
+      total: sTotal + rTotal, done: sDone + rDone,
+    };
+  });
 }
 
 // ============================================================
@@ -1797,6 +1906,174 @@ function buildRunTips() {
 }
 
 // ============================================================
+//  VIEW: PROGRESS — Strength & compliance helpers  (Phase 9)
+// ============================================================
+
+function buildSparkline(values, color, height, invert) {
+  if (!values || values.length < 2) return '';
+  const W = 300, H = height || 52, padX = 6, padY = 8;
+  const draw = invert ? values.map(v => -v) : values.slice();
+  const min  = Math.min(...draw);
+  const max  = Math.max(...draw);
+  const rng  = max - min || 1;
+  const pts  = draw.map((v, i) => ({
+    x: padX + (i / (draw.length - 1)) * (W - padX * 2),
+    y: H - padY - ((v - min) / rng) * (H - padY * 2),
+  }));
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const area = `${line} L${pts[pts.length-1].x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`;
+  const last = pts[pts.length - 1];
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+    style="width:100%;height:${H}px;display:block;overflow:visible;">
+    <path d="${area}" fill="${color}" opacity="0.1"/>
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="${color}"/>
+  </svg>`;
+}
+
+function buildPRSection() {
+  const { prs, unit } = getStrengthPRData();
+  const runData = getRunProgressData();
+
+  const liftTiles = PR_LIFTS.map(name => {
+    const pr = prs[name];
+    if (!pr.best1RM) return `
+      <div class="pr-tile empty">
+        <div class="pr-tile-name">${PR_SHORT[name]}</div>
+        <div class="pr-tile-empty">No data</div>
+      </div>`;
+    const dt  = fromDateStr(pr.bestDate);
+    const lbl = `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+    return `
+      <div class="pr-tile">
+        <div class="pr-tile-name">${PR_SHORT[name]}</div>
+        <div class="pr-tile-1rm">${pr.best1RM}<span class="pr-tile-unit"> ${unit}</span></div>
+        <div class="pr-tile-sub">est. 1RM · ${lbl}</div>
+        <div class="pr-tile-actual">${pr.bestWeight} ${unit} max</div>
+      </div>`;
+  });
+
+  const bestTrial = runData.trials.length
+    ? runData.trials.reduce((b, t) => (!b || t.avgSecs < b.avgSecs) ? t : b, null)
+    : null;
+  const runTile = bestTrial ? (() => {
+    const dt  = fromDateStr(bestTrial.ds);
+    const lbl = `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+    return `
+      <div class="pr-tile run">
+        <div class="pr-tile-name">2-Mile</div>
+        <div class="pr-tile-1rm">${bestTrial.time}</div>
+        <div class="pr-tile-sub">${formatMmSs(bestTrial.avgSecs / 2)}/mi pace</div>
+        <div class="pr-tile-actual">Best · ${lbl}</div>
+      </div>`;
+  })() : `
+    <div class="pr-tile empty run">
+      <div class="pr-tile-name">2-Mile</div>
+      <div class="pr-tile-empty">No trial yet</div>
+    </div>`;
+
+  return `
+    <div class="section-label">Personal Records</div>
+    <div class="pr-grid">${liftTiles.join('')}${runTile}</div>
+  `;
+}
+
+function buildStrengthChartsSection() {
+  const { prs, unit } = getStrengthPRData();
+
+  const rows = PR_LIFTS.map(name => {
+    const pr = prs[name];
+    if (pr.history.length < 2) return '';
+    const vals  = pr.history.map(h => h.est1RM);
+    return `
+      <div class="scr-row">
+        <div class="scr-header">
+          <span class="scr-name">${PR_SHORT[name]}</span>
+          <span class="scr-val">${vals[vals.length - 1]} ${unit} est. 1RM</span>
+        </div>
+        ${buildSparkline(vals, PR_COLOR[name] || '#fb923c', 48)}
+      </div>`;
+  }).filter(Boolean);
+
+  if (!rows.length) return '';
+  return `
+    <div class="section-label">1RM Progress</div>
+    <div class="scr-list">${rows.join('')}</div>
+  `;
+}
+
+function buildWeeklyComplianceSection() {
+  const weeks  = getWeeklyCompliance(8);
+  const BAR_H  = 56;
+  const bars   = weeks.map((wk, i) => {
+    const isCur  = i === weeks.length - 1;
+    const barH   = wk.total > 0 ? Math.max(Math.round((wk.done / wk.total) * BAR_H), 3) : 3;
+    const barCls = wk.total === 0 ? 'zero'
+                 : wk.done / wk.total >= 0.8 ? 'high'
+                 : wk.done > 0 ? 'mid' : 'low';
+    return `
+      <div class="compliance-col${isCur ? ' current' : ''}">
+        <div class="compliance-bar-wrap">
+          <div class="compliance-bar ${barCls}" style="height:${barH}px"></div>
+        </div>
+        <div class="compliance-lbl">${wk.lbl.split(' ')[1]}</div>
+      </div>`;
+  }).join('');
+
+  const tot = weeks.reduce((a, wk) => ({
+    done:    a.done    + wk.done,
+    total:   a.total   + wk.total,
+    skipped: a.skipped + wk.skipped,
+    sDone:   a.sDone   + wk.sDone,
+    rDone:   a.rDone   + wk.rDone,
+  }), { done: 0, total: 0, skipped: 0, sDone: 0, rDone: 0 });
+  const avgPct = tot.total ? Math.round((tot.done / tot.total) * 100) : 0;
+
+  return `
+    <div class="section-label">Weekly Compliance</div>
+    <div class="compliance-card">
+      <div class="compliance-chart">${bars}</div>
+      <div class="compliance-stats">
+        <span class="cs-badge cs-strength">${tot.sDone} strength</span>
+        <span class="cs-badge cs-run">${tot.rDone} run</span>
+        <span class="cs-badge cs-skip">${tot.skipped} skipped</span>
+        <span class="cs-pct">${avgPct}% avg</span>
+      </div>
+    </div>
+  `;
+}
+
+function buildBodyWeightSection() {
+  const log    = Store.getWeightLog();
+  const unit   = Store.getUnit();
+  const todayDs = toDateStr(today());
+  const latest  = log.length ? log[log.length - 1] : null;
+  const nums    = log.map(e => parseFloat(e.weight)).filter(v => !isNaN(v));
+
+  return `
+    <div class="section-label">Body Weight</div>
+    <div class="bw-card">
+      ${nums.length >= 2 ? buildSparkline(nums, '#c084fc', 52) : ''}
+      ${latest ? `
+        <div class="bw-latest-row">
+          <span class="bw-latest-val">${latest.weight} ${unit}</span>
+          <span class="bw-latest-date">${(() => {
+            const dt = fromDateStr(latest.ds);
+            return `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+          })()}</span>
+        </div>` : ''}
+      <div class="bw-entry-row">
+        <input type="number" id="bw-input" class="form-input bw-input"
+               placeholder="Today's weight (${unit})" inputmode="decimal" step="0.1"
+               value="${log.find(e => e.ds === todayDs)?.weight || ''}">
+        <button class="btn btn-secondary btn-sm bw-btn" data-action="log-bodyweight">Log</button>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
 //  VIEW: PROGRESS
 // ============================================================
 
@@ -1878,6 +2155,11 @@ function renderProgress() {
             <div class="stat-tile-label">Scheduled</div>
           </div>
         </div>
+
+        ${buildWeeklyComplianceSection()}
+        ${buildPRSection()}
+        ${buildStrengthChartsSection()}
+        ${buildBodyWeightSection()}
 
         <div class="section-label">Running</div>
         ${buildRunProgressSection()}
@@ -1992,7 +2274,7 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 7.0</span>
+          <span class="settings-row-value">Phase 9.0</span>
         </div>
         <div class="mt-12">${resetHtml}</div>
       </div>
@@ -2379,6 +2661,15 @@ document.addEventListener('click', e => {
       if (cur)  Store.setRunCurrent(cur);
       if (goal) Store.setRunGoal(goal);
       renderSettings();
+      break;
+    }
+
+    case 'log-bodyweight': {
+      const val = $id('bw-input')?.value.trim();
+      if (val && !isNaN(parseFloat(val))) {
+        Store.logBodyWeight(toDateStr(today()), val);
+        renderProgress();
+      }
       break;
     }
 
