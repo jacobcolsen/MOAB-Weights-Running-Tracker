@@ -1534,6 +1534,269 @@ function renderWorkouts() {
 }
 
 // ============================================================
+//  VIEW: PROGRESS — Run progress helpers  (Phase 8)
+// ============================================================
+
+function normSplits(raw) {
+  if (!raw) return [];
+  return (Array.isArray(raw) ? raw : String(raw).split(','))
+    .map(s => s.trim()).filter(Boolean);
+}
+
+function analyzeRunTrend(sessions) {
+  if (sessions.length < 2) return null;
+  const recent = sessions[sessions.length - 1].avgSecs;
+  const prev   = sessions[sessions.length - 2].avgSecs;
+  const diff   = prev - recent;  // positive = got faster (lower time is better)
+  if (diff > 2)  return { dir: 'faster', diffSecs: Math.abs(diff) };
+  if (diff < -2) return { dir: 'slower', diffSecs: Math.abs(diff) };
+  return { dir: 'same', diffSecs: 0 };
+}
+
+function getRunProgressData() {
+  const currentStr  = Store.getRunCurrent();
+  const goalStr     = Store.getRunGoal();
+  const currentSecs = parseMmSs(currentStr);
+  const goalSecs    = parseMmSs(goalStr);
+
+  const allLogs = Object.entries(Store.getRunLogs())
+    .sort((a, b) => a[0].localeCompare(b[0]));  // oldest first
+
+  const trials = allLogs
+    .filter(([, l]) => l.wktTitle === '2-Mile Time Trial' && parseMmSs(l.time) !== null)
+    .map(([ds, l]) => ({ ds, time: l.time, avgSecs: parseMmSs(l.time) }));
+
+  const s400 = allLogs
+    .filter(([, l]) => l.wktKey === 'run_a' && (l.wktTitle || '').includes('400m'))
+    .map(([ds, l]) => {
+      const vals = normSplits(l.splits).map(parseMmSs).filter(v => v !== null);
+      if (!vals.length) return null;
+      return { ds, avgSecs: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
+    }).filter(Boolean);
+
+  const s800 = allLogs
+    .filter(([, l]) => l.wktKey === 'run_a' && (l.wktTitle || '').includes('800m'))
+    .map(([ds, l]) => {
+      const vals = normSplits(l.splits).map(parseMmSs).filter(v => v !== null);
+      if (!vals.length) return null;
+      return { ds, avgSecs: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length };
+    }).filter(Boolean);
+
+  const tempo = allLogs
+    .filter(([, l]) => l.wktKey === 'run_b' && parseMmSs(l.avgPace) !== null)
+    .map(([ds, l]) => ({ ds, avgSecs: parseMmSs(l.avgPace) }));
+
+  const recentRuns = [...allLogs].reverse().slice(0, 8).map(([ds, l]) => ({ ds, ...l }));
+
+  return {
+    currentStr, goalStr, currentSecs, goalSecs,
+    trials, s400, s800, tempo, recentRuns,
+    trend400:   analyzeRunTrend(s400),
+    trend800:   analyzeRunTrend(s800),
+    trendTrial: analyzeRunTrend(trials),
+    trendTempo: analyzeRunTrend(tempo),
+  };
+}
+
+function buildRunProgressSection() {
+  const d       = getRunProgressData();
+  const hasData = d.currentSecs !== null || d.goalSecs !== null || d.recentRuns.length > 0;
+  if (!hasData) {
+    return `
+      <div class="rp-empty">
+        <div class="rp-empty-text">
+          Set your 2-mile times in Settings and log a run to see progress here.
+        </div>
+      </div>
+      ${buildRunTips()}
+    `;
+  }
+  return `
+    ${buildTwoMileCard(d)}
+    ${buildRunTrendSection(d)}
+    ${buildRecentRunsSection(d.recentRuns)}
+    ${buildRunTips()}
+  `;
+}
+
+function buildTwoMileCard(d) {
+  const hasCurrent = d.currentSecs !== null;
+  const hasGoal    = d.goalSecs    !== null;
+  if (!hasCurrent && !hasGoal) return '';
+
+  const currentPaceStr = hasCurrent ? `${formatMmSs(d.currentSecs / 2)}/mi` : '—';
+  const goalPaceStr    = hasGoal    ? `${formatMmSs(d.goalSecs / 2)}/mi`    : '—';
+
+  let gapHtml = '';
+  if (hasCurrent && hasGoal) {
+    const gapTotal = d.currentSecs - d.goalSecs;
+    if (gapTotal > 0) {
+      const gapPace = gapTotal / 2;
+      gapHtml = `
+        <div class="rp-gap">
+          Cut <strong>${formatMmSs(gapTotal)}</strong> total
+          &nbsp;·&nbsp; ${formatMmSs(gapPace)}/mi pace gain needed
+        </div>
+      `;
+    } else {
+      gapHtml = `<div class="rp-gap rp-gap-met">Goal time reached 🎯</div>`;
+    }
+  }
+
+  let trialHtml = '';
+  if (d.trials.length > 0) {
+    const recent = d.trials.slice(-4);
+    trialHtml = `
+      <div class="rp-trial-list">
+        <div class="rp-trial-label">Time Trial Results</div>
+        ${recent.map((t, i, arr) => {
+          const prev = arr[i - 1];
+          let deltaHtml = '';
+          if (prev) {
+            const diff = prev.avgSecs - t.avgSecs;
+            if (diff > 0)      deltaHtml = `<span class="rp-delta faster">−${formatMmSs(diff)}</span>`;
+            else if (diff < 0) deltaHtml = `<span class="rp-delta slower">+${formatMmSs(Math.abs(diff))}</span>`;
+            else               deltaHtml = `<span class="rp-delta same">no change</span>`;
+          }
+          const dt  = fromDateStr(t.ds);
+          const lbl = `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+          return `
+            <div class="rp-trial-row">
+              <span class="rp-trial-date">${lbl}</span>
+              <span class="rp-trial-time">${t.time}</span>
+              ${deltaHtml}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="run-prog-card">
+      <div class="run-prog-header">
+        <div class="run-prog-col">
+          <div class="rp-col-lbl">Current</div>
+          <div class="rp-col-time">${d.currentStr || '—'}</div>
+          <div class="rp-col-pace">${currentPaceStr}</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="run-prog-col">
+          <div class="rp-col-lbl">Goal</div>
+          <div class="rp-col-time goal">${d.goalStr || '—'}</div>
+          <div class="rp-col-pace">${goalPaceStr}</div>
+        </div>
+      </div>
+      ${gapHtml}
+      ${trialHtml}
+    </div>
+  `;
+}
+
+function buildRunTrendSection(d) {
+  const ICON_MAP = { faster: '↑', slower: '↓', same: '→' };
+  const items = [];
+
+  if (d.s400.length > 0) {
+    const latest = d.s400[d.s400.length - 1];
+    items.push({ label: '400m Speed', val: formatMmSs(Math.round(latest.avgSecs)),
+      sub: `avg split · ${latest.count} reps`, trend: d.trend400 });
+  }
+  if (d.s800.length > 0) {
+    const latest = d.s800[d.s800.length - 1];
+    items.push({ label: '800m Speed', val: formatMmSs(Math.round(latest.avgSecs)),
+      sub: `avg split · ${latest.count} reps`, trend: d.trend800 });
+  }
+  if (d.tempo.length > 0) {
+    const latest = d.tempo[d.tempo.length - 1];
+    items.push({ label: 'Tempo Pace', val: `${formatMmSs(latest.avgSecs)}/mi`,
+      sub: 'avg run pace', trend: d.trendTempo });
+  }
+  if (d.trials.length > 0) {
+    const latest = d.trials[d.trials.length - 1];
+    items.push({ label: '2-Mile Trial', val: latest.time,
+      sub: 'best effort', trend: d.trendTrial });
+  }
+
+  if (!items.length) return '';
+
+  return `
+    <div class="section-label">Performance</div>
+    <div class="run-trend-grid">
+      ${items.map(item => {
+        const icon     = item.trend ? ICON_MAP[item.trend.dir] : '';
+        const trendCls = item.trend?.dir || '';
+        const trendHtml = icon
+          ? `<span class="rp-trend-icon ${trendCls}">${icon}</span>`
+          : '';
+        return `
+          <div class="run-trend-tile">
+            <div class="rtt-header">
+              <span class="rtt-label">${item.label}</span>
+              ${trendHtml}
+            </div>
+            <div class="rtt-val">${item.val}</div>
+            <div class="rtt-sub">${item.sub}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function buildRecentRunsSection(recentRuns) {
+  if (!recentRuns.length) return '';
+  const TYPE_LABEL = { run_a: 'Speed', run_b: 'Tempo' };
+
+  const rows = recentRuns.map(run => {
+    const dt   = fromDateStr(run.ds);
+    const lbl  = `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+    const type = TYPE_LABEL[run.wktKey] || 'Run';
+    return `
+      <div class="run-hist-row">
+        <div class="run-hist-left">
+          <span class="run-hist-date">${lbl}</span>
+          <span class="run-hist-type">${type}</span>
+        </div>
+        <div class="run-hist-stats">
+          ${run.time     ? `<span class="run-hist-val">${run.time}</span>` : ''}
+          ${run.distance ? `<span class="run-hist-sub">${run.distance} mi</span>` : ''}
+          ${run.avgPace  ? `<span class="run-hist-sub">${run.avgPace}/mi</span>` : ''}
+          ${run.effort != null ? `<span class="run-hist-effort">${run.effort}/10</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="section-label">Recent Runs</div>
+    <div class="run-hist-list">${rows}</div>
+  `;
+}
+
+function buildRunTips() {
+  const cycleWeek = getRunCycleWeek(getProgramWeek(today()));
+  const isTrial   = cycleWeek === 6;
+  const tips = [
+    { icon: '⚡', text: 'Speed day improves top-end pace.' },
+    { icon: '🔥', text: 'Tempo day improves your ability to hold pace.' },
+    { icon: isTrial ? '📍' : '📏',
+      text: isTrial ? 'This week is a time trial — race your best.' : 'Time trial weeks measure your progress.' },
+  ];
+  return `
+    <div class="section-label">Training Notes</div>
+    <div class="run-tips">
+      ${tips.map(t => `
+        <div class="run-tip">
+          <span class="run-tip-icon">${t.icon}</span>
+          <span class="run-tip-text">${t.text}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ============================================================
 //  VIEW: PROGRESS
 // ============================================================
 
@@ -1615,6 +1878,9 @@ function renderProgress() {
             <div class="stat-tile-label">Scheduled</div>
           </div>
         </div>
+
+        <div class="section-label">Running</div>
+        ${buildRunProgressSection()}
       `}
     </div>
   `);
