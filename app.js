@@ -2956,6 +2956,29 @@ document.addEventListener('change', e => {
 });
 
 // ============================================================
+//  OFFLINE INDICATOR
+// ============================================================
+
+function updateOfflineBar() {
+  const bar = $id('offline-bar');
+  if (!bar) return;
+  bar.classList.toggle('hidden', navigator.onLine);
+}
+
+window.addEventListener('online',  updateOfflineBar);
+window.addEventListener('offline', updateOfflineBar);
+
+// ============================================================
+//  SERVICE WORKER REGISTRATION
+// ============================================================
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// ============================================================
 //  INIT
 // ============================================================
 
@@ -2963,6 +2986,7 @@ function init() {
   if (!Store.getProgramStart()) {
     Store.setProgramStart(getMondayOf(today()));
   }
+  updateOfflineBar();
   navigate('today');
 }
 

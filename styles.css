@@ -118,6 +118,21 @@ body {
   position: relative;
 }
 
+/* ---------- Offline bar ---------- */
+.offline-bar {
+  flex-shrink: 0;
+  background: #292524;
+  border-bottom: 1px solid rgba(251,191,36,.15);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 6px 16px;
+  z-index: 10;
+}
+.offline-bar.hidden { display: none; }
+
 /* ---------- Bottom nav (5 tabs) ---------- */
 #bottom-nav {
   display: flex;
