@@ -207,7 +207,8 @@ const Store = {
     RUN_CURRENT:   'moab_run_current',
     RUN_LOGS:      'moab_run_logs',
     STRENGTH_LOGS: 'moab_strength_logs',
-    WEIGHT_LOG:    'moab_weight_log',
+    WEIGHT_LOG:     'moab_weight_log',
+    BODY_CHECKINS:  'moab_body_checkins',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -332,10 +333,116 @@ const Store = {
     this._set(this.KEYS.WEIGHT_LOG, log);
   },
 
+  // ---- Body check-ins: [{ ds, weight, waist, notes }] sorted oldest first ----
+  getBodyCheckIns() { return this._get(this.KEYS.BODY_CHECKINS) || []; },
+  saveBodyCheckIn(ds, { weight, waist, notes }) {
+    const list  = this.getBodyCheckIns();
+    const entry = { ds, weight: weight || '', waist: waist || '', notes: notes || '' };
+    const idx   = list.findIndex(e => e.ds === ds);
+    if (idx >= 0) list[idx] = entry;
+    else { list.push(entry); list.sort((a, b) => a.ds.localeCompare(b.ds)); }
+    this._set(this.KEYS.BODY_CHECKINS, list);
+    if (weight && !isNaN(parseFloat(weight))) this.logBodyWeight(ds, weight);
+  },
+
   clearAll() {
     Object.values(this.KEYS).forEach(k => localStorage.removeItem(k));
   },
 };
+
+// ============================================================
+//  PHOTO STORAGE  (IndexedDB — keeps photos off localStorage)
+// ============================================================
+
+const PhotoDB = (() => {
+  const DB_NAME = 'moab_photos';
+  const DB_VER  = 1;
+  const STORE   = 'photos';
+  let _db = null;
+
+  function open() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE))
+          db.createObjectStore(STORE, { keyPath: 'id' });
+      };
+      req.onsuccess = e => { _db = e.target.result; res(_db); };
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  return {
+    async save(ds, angle, dataUrl) {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put({ id: `${ds}_${angle}`, ds, angle, dataUrl, savedAt: new Date().toISOString() });
+        tx.oncomplete = () => res();
+        tx.onerror    = e  => rej(e.target.error);
+      });
+    },
+
+    async get(ds, angle) {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(`${ds}_${angle}`);
+        req.onsuccess = () => res(req.result || null);
+        req.onerror   = e  => rej(e.target.error);
+      });
+    },
+
+    async getAll() {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror   = e  => rej(e.target.error);
+      });
+    },
+
+    async remove(ds, angle) {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(`${ds}_${angle}`);
+        tx.oncomplete = () => res();
+        tx.onerror    = e  => rej(e.target.error);
+      });
+    },
+
+    async clearAll() {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = () => res();
+        tx.onerror    = e  => rej(e.target.error);
+      });
+    },
+  };
+})();
+
+// Resize a photo dataURL to max 800px on longest side, JPEG q=0.82
+function resizeImage(dataUrl, maxDim = 800) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const scale  = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w      = Math.round(img.width  * scale);
+      const h      = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => res(dataUrl); // fallback: store original
+    img.src = dataUrl;
+  });
+}
 
 // ============================================================
 //  SCHEDULE ACTIONS
@@ -2044,33 +2151,157 @@ function buildWeeklyComplianceSection() {
   `;
 }
 
-function buildBodyWeightSection() {
-  const log    = Store.getWeightLog();
-  const unit   = Store.getUnit();
-  const todayDs = toDateStr(today());
-  const latest  = log.length ? log[log.length - 1] : null;
-  const nums    = log.map(e => parseFloat(e.weight)).filter(v => !isNaN(v));
+function buildBodyCheckInSection() {
+  const checkins  = Store.getBodyCheckIns();
+  const weightLog = Store.getWeightLog();
+  const unit      = Store.getUnit();
+  const todayDs   = toDateStr(today());
+  const todayEntry = checkins.find(e => e.ds === todayDs) || null;
+  const latest    = checkins.length ? checkins[checkins.length - 1] : null;
+  const nums      = weightLog.map(e => parseFloat(e.weight)).filter(v => !isNaN(v));
+  const waistUnit = unit === 'kg' ? 'cm' : 'in';
+
+  // Find entry closest to 30 days ago for comparison
+  const compCutoff = toDateStr(addDays(today(), -28));
+  const olderEntries = checkins.filter(e => e.ds <= compCutoff);
+  const compEntry = olderEntries.length ? olderEntries[olderEntries.length - 1] : null;
+  const showCompare = compEntry && latest && compEntry.ds !== latest.ds;
+
+  const ANGLES = ['front', 'side', 'back'];
+  const photoSlots = ANGLES.map(angle => `
+    <label class="photo-slot" for="photo-input-${angle}">
+      <div class="photo-slot-preview" id="photo-preview-${angle}">
+        <span class="photo-slot-icon">+</span>
+        <span class="photo-slot-name">${angle.charAt(0).toUpperCase() + angle.slice(1)}</span>
+      </div>
+      <input type="file" id="photo-input-${angle}" accept="image/*"
+             data-photo-angle="${angle}" data-photo-ds="${todayDs}"
+             class="photo-file-input visually-hidden">
+    </label>`).join('');
 
   return `
-    <div class="section-label">Body Weight</div>
-    <div class="bw-card">
+    <div class="section-label">Body Check-In</div>
+    <div class="checkin-card">
       ${nums.length >= 2 ? buildSparkline(nums, '#c084fc', 52) : ''}
       ${latest ? `
-        <div class="bw-latest-row">
-          <span class="bw-latest-val">${latest.weight} ${unit}</span>
-          <span class="bw-latest-date">${(() => {
+        <div class="checkin-latest-row">
+          ${latest.weight ? `<span class="checkin-latest-val">${latest.weight} ${unit}</span>` : ''}
+          ${latest.waist  ? `<span class="checkin-latest-waist">Waist ${latest.waist} ${waistUnit}</span>` : ''}
+          <span class="checkin-latest-date">${(() => {
             const dt = fromDateStr(latest.ds);
             return `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
           })()}</span>
         </div>` : ''}
-      <div class="bw-entry-row">
-        <input type="number" id="bw-input" class="form-input bw-input"
-               placeholder="Today's weight (${unit})" inputmode="decimal" step="0.1"
-               value="${log.find(e => e.ds === todayDs)?.weight || ''}">
-        <button class="btn btn-secondary btn-sm bw-btn" data-action="log-bodyweight">Log</button>
+
+      <div class="checkin-form">
+        <div class="checkin-form-row">
+          <input type="number" id="ci-weight" class="form-input checkin-input"
+                 placeholder="Weight (${unit})" inputmode="decimal" step="0.1"
+                 value="${todayEntry?.weight || ''}">
+          <input type="number" id="ci-waist" class="form-input checkin-input"
+                 placeholder="Waist (${waistUnit})" inputmode="decimal" step="0.5"
+                 value="${todayEntry?.waist || ''}">
+        </div>
+        <textarea id="ci-notes" class="form-input checkin-notes"
+                  placeholder="Notes — e.g. after breakfast, day 3 of cut…" rows="2">${todayEntry?.notes || ''}</textarea>
+        <button class="btn btn-primary btn-sm" data-action="save-checkin">Save Check-In</button>
       </div>
+
+      ${showCompare ? `
+        <div class="checkin-compare">
+          <div class="cc-header">vs. ${(() => {
+            const dt = fromDateStr(compEntry.ds);
+            return `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+          })()} (~30 days ago)</div>
+          <div class="cc-row">
+            ${latest.weight && compEntry.weight ? (() => {
+              const d   = (parseFloat(latest.weight) - parseFloat(compEntry.weight)).toFixed(1);
+              const cls = d < 0 ? 'down' : d > 0 ? 'up' : 'same';
+              return `<span class="cc-stat ${cls}">Weight ${d > 0 ? '+' : ''}${d} ${unit}</span>`;
+            })() : ''}
+            ${latest.waist && compEntry.waist ? (() => {
+              const d   = (parseFloat(latest.waist) - parseFloat(compEntry.waist)).toFixed(1);
+              const cls = d < 0 ? 'down' : d > 0 ? 'up' : 'same';
+              return `<span class="cc-stat ${cls}">Waist ${d > 0 ? '+' : ''}${d} ${waistUnit}</span>`;
+            })() : ''}
+          </div>
+        </div>` : ''}
     </div>
+
+    <div class="section-label">
+      Progress Photos
+      <span class="photo-local-badge">Local only</span>
+    </div>
+    <p class="photo-warn">Photos are stored only in this browser and never uploaded. Each photo uses ~50–150 KB after compression.</p>
+    <div class="photo-grid">${photoSlots}</div>
+
+    <div id="monthly-photos-wrap" class="monthly-photos-wrap"></div>
   `;
+}
+
+// ---- Async: fill photo thumbnails for a given date into the DOM ----
+async function loadPhotoThumbnails(ds) {
+  for (const angle of ['front', 'side', 'back']) {
+    const rec = await PhotoDB.get(ds, angle);
+    if (rec) setPhotoPreview(angle, rec.dataUrl, ds);
+  }
+}
+
+function setPhotoPreview(angle, dataUrl, ds) {
+  const preview = $id(`photo-preview-${angle}`);
+  if (!preview) return;
+  preview.innerHTML = `
+    <img src="${dataUrl}" class="photo-thumb" alt="${angle} photo">
+    <button class="photo-delete-btn" data-action="delete-photo"
+            data-angle="${angle}" data-ds="${ds}" title="Remove">✕</button>`;
+}
+
+// ---- Async: load monthly comparison photos and inject into DOM ----
+async function loadMonthlyComparison() {
+  const wrap = $id('monthly-photos-wrap');
+  if (!wrap) return;
+
+  const all = await PhotoDB.getAll();
+  if (!all.length) return;
+
+  // Group by date
+  const byDate = {};
+  all.forEach(r => { (byDate[r.ds] = byDate[r.ds] || {})[r.angle] = r.dataUrl; });
+  const dates = Object.keys(byDate).sort();
+  if (dates.length < 2) return;
+
+  const newestDs = dates[dates.length - 1];
+  const cutoff   = toDateStr(addDays(fromDateStr(newestDs), -21));
+  const olderDs  = dates.filter(d => d <= cutoff);
+  if (!olderDs.length) return;
+
+  const compareDs = olderDs[olderDs.length - 1];
+  const newestDt  = fromDateStr(newestDs);
+  const compareDt = fromDateStr(compareDs);
+  const fmtDate   = dt => `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
+
+  const ANGLES = ['front', 'side', 'back'];
+  const cols = (ds, label) => {
+    const datePhotos = byDate[ds] || {};
+    return ANGLES.map(a => datePhotos[a]
+      ? `<img src="${datePhotos[a]}" class="compare-thumb" alt="${a}">`
+      : `<div class="compare-empty">${a}</div>`
+    ).join('');
+  };
+
+  wrap.innerHTML = `
+    <div class="section-label">Monthly Comparison</div>
+    <div class="compare-card">
+      <div class="compare-col">
+        <div class="compare-col-lbl">${fmtDate(compareDt)}</div>
+        ${cols(compareDs)}
+      </div>
+      <div class="compare-divider"></div>
+      <div class="compare-col">
+        <div class="compare-col-lbl">${fmtDate(newestDt)}</div>
+        ${cols(newestDs)}
+      </div>
+    </div>`;
 }
 
 // ============================================================
@@ -2159,13 +2390,19 @@ function renderProgress() {
         ${buildWeeklyComplianceSection()}
         ${buildPRSection()}
         ${buildStrengthChartsSection()}
-        ${buildBodyWeightSection()}
+        ${buildBodyCheckInSection()}
 
         <div class="section-label">Running</div>
         ${buildRunProgressSection()}
       `}
     </div>
   `);
+
+  if (start) {
+    const _ds = toDateStr(t);
+    loadPhotoThumbnails(_ds);
+    loadMonthlyComparison();
+  }
 }
 
 // ============================================================
@@ -2274,7 +2511,7 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 9.0</span>
+          <span class="settings-row-value">Phase 10.0</span>
         </div>
         <div class="mt-12">${resetHtml}</div>
       </div>
@@ -2664,12 +2901,20 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'log-bodyweight': {
-      const val = $id('bw-input')?.value.trim();
-      if (val && !isNaN(parseFloat(val))) {
-        Store.logBodyWeight(toDateStr(today()), val);
-        renderProgress();
-      }
+    case 'save-checkin': {
+      const weight = $id('ci-weight')?.value.trim() || '';
+      const waist  = $id('ci-waist')?.value.trim()  || '';
+      const notes  = $id('ci-notes')?.value.trim()  || '';
+      if (!weight && !waist && !notes) break;
+      Store.saveBodyCheckIn(toDateStr(today()), { weight, waist, notes });
+      renderProgress();
+      break;
+    }
+
+    case 'delete-photo': {
+      const { angle, ds } = el.dataset;
+      if (!angle || !ds) break;
+      PhotoDB.remove(ds, angle).then(() => renderProgress()).catch(() => {});
       break;
     }
 
@@ -2677,6 +2922,7 @@ document.addEventListener('click', e => {
     case 'cancel-reset':  { state.resetConfirm = false; renderSettings(); break; }
     case 'confirm-reset': {
       Store.clearAll();
+      PhotoDB.clearAll().catch(() => {});
       state.resetConfirm = false;
       navigate('today');
       break;
@@ -2686,6 +2932,28 @@ document.addEventListener('click', e => {
 
 // Close modal on overlay tap
 $id('overlay').addEventListener('click', () => { if (state.modalPage) hideModal(); });
+
+// ---- Photo file-input change handler ----
+document.addEventListener('change', e => {
+  const input = e.target;
+  if (!input.matches('.photo-file-input')) return;
+  const file  = input.files?.[0];
+  const angle = input.dataset.photoAngle;
+  const ds    = input.dataset.photoDs;
+  if (!file || !angle || !ds) return;
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const resized = await resizeImage(ev.target.result);
+      await PhotoDB.save(ds, angle, resized);
+      setPhotoPreview(angle, resized, ds);
+    } catch {
+      alert('Could not save photo — storage may be full.');
+    }
+  };
+  reader.readAsDataURL(file);
+});
 
 // ============================================================
 //  INIT
