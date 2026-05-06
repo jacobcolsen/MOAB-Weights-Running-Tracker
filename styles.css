@@ -2528,3 +2528,201 @@ input[type="date"]:focus { border-color: var(--accent); }
 }
 .settings-feedback.ok  { background: rgba(74,222,128,.1);  color: #4ade80; }
 .settings-feedback.err { background: rgba(239,68,68,.1);   color: #f87171; }
+
+/* ============================================================
+   PHASE 13 — DAILY EXPERIENCE POLISH
+   ============================================================ */
+
+/* ---------- This Week strip (Today view) ---------- */
+.week-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 4px 14px;
+  gap: 4px;
+}
+.ws-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.ws-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform .15s;
+}
+.ws-dot.ws-done  { background: rgba(74,222,128,.2);  color: #4ade80; border: 1.5px solid #4ade80; }
+.ws-dot.ws-skip  { background: rgba(239,68,68,.15);  color: #f87171; border: 1.5px solid rgba(239,68,68,.4); }
+.ws-dot.ws-today { background: rgba(251,146,60,.2);  color: var(--accent); border: 1.5px solid var(--accent); }
+.ws-dot.ws-plan  { background: rgba(255,255,255,.04); color: #444;  border: 1.5px solid rgba(255,255,255,.08); }
+.ws-dot.ws-rest  { background: transparent; color: #2a2a2a; border: 1.5px solid #1f1f1f; }
+.ws-current .ws-dot { transform: scale(1.12); }
+.ws-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #444;
+  letter-spacing: .05em;
+}
+.ws-current .ws-lbl { color: var(--accent); }
+
+/* ---------- Resume banner ---------- */
+.resume-banner {
+  background: rgba(251,146,60,.08);
+  border: 1px solid rgba(251,146,60,.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.resume-banner-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.resume-banner-sub {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* ---------- Logger top bar (workout name + duration) ---------- */
+.logger-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 8px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+.logger-top-wkt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.logger-duration-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.logger-duration-icon { font-size: 13px; }
+.wkt-duration {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a0a0a0;
+  font-feature-settings: 'tnum';
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ---------- Redesigned set row ---------- */
+.logger-set-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.logger-set-row:last-child { border-bottom: none; }
+
+.set-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 40px;
+}
+.set-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.set-adj-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.adj-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05);
+  color: #e0e0e0;
+  font-size: 18px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .12s;
+}
+.adj-btn:active { background: rgba(255,255,255,.15); }
+.set-weight, .set-reps {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  height: 36px;
+  border-radius: 8px;
+}
+.set-unit, .set-reps-lbl {
+  font-size: 11px;
+  color: #555;
+  flex-shrink: 0;
+  width: 26px;
+}
+.set-done-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.15);
+  background: none;
+  color: #555;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.set-done .set-done-btn {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74,222,128,.1);
+}
+
+/* ---------- Repeat last weight button ---------- */
+.repeat-weight-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: rgba(251,146,60,.08);
+  border: 1px solid rgba(251,146,60,.2);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.repeat-weight-btn:active { background: rgba(251,146,60,.16); }

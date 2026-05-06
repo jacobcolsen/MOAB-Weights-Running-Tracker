@@ -251,6 +251,7 @@ const Store = {
     STRENGTH_LOGS: 'moab_strength_logs',
     WEIGHT_LOG:       'moab_weight_log',
     BODY_CHECKINS:    'moab_body_checkins',
+    ACTIVE_WKT:       'moab_active_wkt',
     NAME:             'moab_name',
     GOAL:             'moab_goal',
     REST_TIMES:       'moab_rest_times',
@@ -381,6 +382,11 @@ const Store = {
     else { log.push({ ds, weight: w }); log.sort((a, b) => a.ds.localeCompare(b.ds)); }
     this._set(this.KEYS.WEIGHT_LOG, log);
   },
+
+  // ---- Active in-progress workout ----
+  getActiveWkt()   { return this._get(this.KEYS.ACTIVE_WKT); },
+  setActiveWkt(v)  { this._set(this.KEYS.ACTIVE_WKT, v); },
+  clearActiveWkt() { localStorage.removeItem(this.KEYS.ACTIVE_WKT); },
 
   // ---- Profile ----
   getName()       { return this._get(this.KEYS.NAME) || ''; },
@@ -881,6 +887,59 @@ function getWeeklyCompliance(numWeeks) {
 }
 
 // ============================================================
+//  PHASE 13 HELPERS — DURATION TIMER & ACTIVE WORKOUT SAVE
+// ============================================================
+
+let durationInterval = null;
+
+function startDurationTimer(startedAtMs) {
+  clearInterval(durationInterval);
+  durationInterval = setInterval(() => {
+    const el = $id('wkt-duration');
+    if (!el) { clearInterval(durationInterval); return; }
+    const s = Math.floor((Date.now() - startedAtMs) / 1000);
+    el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }, 1000);
+}
+
+function clearDurationTimer() {
+  clearInterval(durationInterval);
+  durationInterval = null;
+}
+
+// Serialise current logger DOM inputs → localStorage
+function saveActiveWkt(ds) {
+  if (!ds) return;
+  const wkt       = Store.getWorkoutInfo(ds);
+  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
+  const existing  = Store.getActiveWkt();
+  const exData    = exercises.map((ex, i) => ({
+    name: ex.name,
+    sets: Array.from({ length: ex.sets }, (_, j) => ({
+      weight: $id(`w-${i}-${j}`)?.value || '',
+      reps:   $id(`r-${i}-${j}`)?.value || '',
+      done:   $id(`set-${i}-${j}`)?.classList.contains('set-done') || false,
+    })),
+  }));
+  Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt: existing?.startedAt || Date.now(), exData });
+}
+
+// Restore saved inputs + done states into the logger DOM
+function restoreActiveWkt(active) {
+  (active.exData || []).forEach((ex, i) => {
+    (ex.sets || []).forEach((s, j) => {
+      const wEl  = $id(`w-${i}-${j}`);
+      const rEl  = $id(`r-${i}-${j}`);
+      const row  = $id(`set-${i}-${j}`);
+      const btn  = row?.querySelector('.set-done-btn');
+      if (wEl && s.weight) wEl.value = s.weight;
+      if (rEl && s.reps)   rEl.value = s.reps;
+      if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
+    });
+  });
+}
+
+// ============================================================
 //  PHASE 12 HELPERS — SUBSTITUTIONS, REST, EXPORT/IMPORT
 // ============================================================
 
@@ -1087,6 +1146,41 @@ function labelForType(key) {
 //  VIEW: TODAY
 // ============================================================
 
+function buildWeekStrip(t) {
+  const monday  = getMondayOf(t);
+  const todayDs = toDateStr(t);
+
+  const cells = Array.from({ length: 7 }, (_, i) => {
+    const d   = addDays(monday, i);
+    const ds  = toDateStr(d);
+    const wkt = Store.getWorkoutInfo(ds);
+    const log = Store.getDayLog(ds);
+    const status  = log?.status || 'planned';
+    const isToday = ds === todayDs;
+
+    let dotCls;
+    if (wkt.key === 'rest' || wkt.key === 'optional') dotCls = 'ws-rest';
+    else if (status === 'completed') dotCls = 'ws-done';
+    else if (status === 'skipped')   dotCls = 'ws-skip';
+    else if (isToday)                dotCls = 'ws-today';
+    else                             dotCls = 'ws-plan';
+
+    const icon = wkt.key === 'rest'     ? '·'
+               : wkt.key === 'optional' ? '·'
+               : status === 'completed' ? '✓'
+               : status === 'skipped'   ? '×'
+               : wkt.name.charAt(0);
+
+    return `
+      <div class="ws-cell${isToday ? ' ws-current' : ''}">
+        <div class="ws-dot ${dotCls}">${icon}</div>
+        <div class="ws-lbl">${DAYS_S[d.getDay()].charAt(0)}</div>
+      </div>`;
+  });
+
+  return `<div class="week-strip">${cells.join('')}</div>`;
+}
+
 function renderToday() {
   setTitle('MOAB');
   showBack(false);
@@ -1111,6 +1205,8 @@ function renderToday() {
     </div>
   `;
 
+  const weekStrip = buildWeekStrip(t);
+
   let body;
   if (wkt.key === 'rest') {
     body = buildRestDay(t);
@@ -1124,7 +1220,7 @@ function renderToday() {
     body = buildActiveWorkout(ds, wkt);
   }
 
-  setView(`<div class="pad fade-up">${header}${body}</div>`);
+  setView(`<div class="pad fade-up">${header}${weekStrip}${body}</div>`);
 }
 
 function buildActiveWorkout(ds, wkt) {
@@ -1167,15 +1263,30 @@ function buildActiveWorkout(ds, wkt) {
 
     ${exSection}
 
-    <button class="btn btn-primary" data-action="do-start" data-date="${ds}">
-      Start Workout
-    </button>
+    ${(() => {
+      const active = Store.getActiveWkt();
+      const hasResume = active?.ds === ds && (active.exData || []).some(ex => ex.sets?.some(s => s.weight || s.reps || s.done));
+      return hasResume ? `
+        <div class="resume-banner">
+          <div class="resume-banner-text">In-progress workout found</div>
+          <div class="resume-banner-sub">Started ${(() => {
+            const mins = Math.round((Date.now() - active.startedAt) / 60000);
+            return mins < 1 ? 'just now' : `${mins} min ago`;
+          })()}</div>
+        </div>
+        <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Resume Workout</button>
+        <button class="btn btn-secondary btn-sm mt-8" data-action="start-fresh" data-date="${ds}">Start Fresh</button>
+      ` : `
+        <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Start Workout</button>
+      `;
+    })()}
 
     <div class="btn-row-3 mt-10">
       <button class="btn btn-secondary btn-sm" data-action="do-skip"  data-date="${ds}">Skip</button>
       <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
       <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
     </div>
+    ${nextCard(findNextWorkout(today()))}
   `;
 }
 
@@ -1447,17 +1558,42 @@ function renderStrengthLogger(ds, wkt) {
       </div>
     ` : `<div class="prog-widget-empty">No previous data</div>`;
 
+    const recW = prog?.recommendation || lastW;
+    const repeatBtn = recW ? `
+      <button class="repeat-weight-btn" data-action="repeat-weight"
+              data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
+        Fill ${recW} ${unit} all sets
+      </button>` : '';
+
+    const adjDelta = unit === 'kg' ? 2.5 : 5;
+
     const setRows = Array.from({ length: ex.sets }, (_, j) => `
       <div class="logger-set-row" id="set-${i}-${j}">
-        <span class="set-num">${j + 1}</span>
-        <input type="number" class="set-weight" id="w-${i}-${j}"
-               placeholder="${lastW}" inputmode="decimal" min="0">
-        <span class="set-unit">${unit}</span>
-        <input type="number" class="set-reps" id="r-${i}-${j}"
-               placeholder="${lastR}" inputmode="numeric" min="0" max="99">
-        <span class="set-reps-lbl">reps</span>
-        <button class="set-done-btn" data-action="mark-set"
-                data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
+        <div class="set-meta">
+          <span class="set-num">${j + 1}</span>
+          <button class="set-done-btn" data-action="mark-set"
+                  data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
+        </div>
+        <div class="set-fields">
+          <div class="set-adj-row">
+            <button class="adj-btn" data-action="adj-weight"
+                    data-ex="${i}" data-set="${j}" data-delta="-${adjDelta}">−</button>
+            <input type="number" class="set-weight" id="w-${i}-${j}"
+                   placeholder="${lastW}" inputmode="decimal" min="0">
+            <span class="set-unit">${unit}</span>
+            <button class="adj-btn" data-action="adj-weight"
+                    data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
+          </div>
+          <div class="set-adj-row">
+            <button class="adj-btn" data-action="adj-reps"
+                    data-ex="${i}" data-set="${j}" data-delta="-1">−</button>
+            <input type="number" class="set-reps" id="r-${i}-${j}"
+                   placeholder="${lastR}" inputmode="numeric" min="0" max="99">
+            <span class="set-reps-lbl">reps</span>
+            <button class="adj-btn" data-action="adj-reps"
+                    data-ex="${i}" data-set="${j}" data-delta="1">+</button>
+          </div>
+        </div>
       </div>
     `).join('');
 
@@ -1472,6 +1608,7 @@ function renderStrengthLogger(ds, wkt) {
         </div>
         <div class="logger-ex-hint">${ex.hint}</div>
         ${progHtml}
+        ${repeatBtn}
         <div class="logger-sets">${setRows}</div>
         <textarea class="form-input form-textarea logger-notes" id="notes-${i}"
                   placeholder="Notes…"></textarea>
@@ -1481,6 +1618,13 @@ function renderStrengthLogger(ds, wkt) {
 
   setView(`
     <div class="logger-wrap">
+      <div class="logger-top-bar">
+        <span class="logger-top-wkt">${wkt.name}</span>
+        <span class="logger-duration-wrap">
+          <span class="logger-duration-icon">⏱</span>
+          <span class="wkt-duration" id="wkt-duration">0:00</span>
+        </span>
+      </div>
       <div class="rest-timer timer-hidden" id="rest-timer">
         <div class="rest-timer-inner">
           <span class="rest-timer-label">Rest</span>
@@ -1497,6 +1641,17 @@ function renderStrengthLogger(ds, wkt) {
       </div>
     </div>
   `);
+
+  // Restore or initialise active workout record
+  const existing = Store.getActiveWkt();
+  if (existing?.ds === ds) {
+    restoreActiveWkt(existing);
+    startDurationTimer(existing.startedAt);
+  } else {
+    const startedAt = Date.now();
+    Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt, exData: [] });
+    startDurationTimer(startedAt);
+  }
 }
 
 function finishStrengthWorkout(ds) {
@@ -1523,6 +1678,8 @@ function finishStrengthWorkout(ds) {
     exercises:   exData,
   });
 
+  Store.clearActiveWkt();
+  clearDurationTimer();
   completeDay(ds);
   navigate('today');
 }
@@ -2986,6 +3143,7 @@ document.addEventListener('click', e => {
 
     case 'do-skip': {
       const ds = el.dataset.date;
+      if (Store.getActiveWkt()?.ds === ds) { Store.clearActiveWkt(); clearDurationTimer(); }
       skipDay(ds);
       hideModal();
       refresh();
@@ -3100,6 +3258,49 @@ document.addEventListener('click', e => {
       el.textContent = isDone ? '✓' : '○';
       if (isDone) startRestTimer(rest);
       else        clearRestTimer();
+      saveActiveWkt(state.loggerDs);
+      break;
+    }
+
+    case 'adj-weight': {
+      const exIdx  = parseInt(el.dataset.ex,  10);
+      const setIdx = parseInt(el.dataset.set, 10);
+      const delta  = parseFloat(el.dataset.delta);
+      const input  = $id(`w-${exIdx}-${setIdx}`);
+      if (!input) break;
+      const cur    = parseFloat(input.value) || parseFloat(input.placeholder) || 0;
+      const next   = Math.max(0, cur + delta);
+      input.value  = Number.isInteger(next) ? String(next) : next.toFixed(1);
+      break;
+    }
+
+    case 'adj-reps': {
+      const exIdx  = parseInt(el.dataset.ex,  10);
+      const setIdx = parseInt(el.dataset.set, 10);
+      const delta  = parseInt(el.dataset.delta, 10);
+      const input  = $id(`r-${exIdx}-${setIdx}`);
+      if (!input) break;
+      const cur   = parseInt(input.value) || parseInt(input.placeholder) || 0;
+      input.value = Math.max(0, cur + delta);
+      break;
+    }
+
+    case 'repeat-weight': {
+      const exIdx  = parseInt(el.dataset.ex, 10);
+      const weight = el.dataset.weight;
+      const sets   = parseInt(el.dataset.sets, 10) || 0;
+      for (let j = 0; j < sets; j++) {
+        const input = $id(`w-${exIdx}-${j}`);
+        if (input) input.value = weight;
+      }
+      break;
+    }
+
+    case 'start-fresh': {
+      Store.clearActiveWkt();
+      const ds  = el.dataset.date;
+      const wkt = Store.getWorkoutInfo(ds);
+      renderStrengthLogger(ds, wkt);
       break;
     }
 
@@ -3237,6 +3438,8 @@ document.addEventListener('click', e => {
     case 'cancel-reset':  { state.resetConfirm = false; renderSettings(); break; }
     case 'confirm-reset': {
       Store.clearAll();
+      Store.clearActiveWkt();
+      clearDurationTimer();
       PhotoDB.clearAll().catch(() => {});
       state.resetConfirm = false;
       navigate('today');
@@ -3268,6 +3471,13 @@ document.addEventListener('change', e => {
     }
   };
   reader.readAsDataURL(file);
+});
+
+// ---- Auto-save active workout on every weight/reps change ----
+document.addEventListener('input', e => {
+  if (state.view !== 'strength-logger' || !state.loggerDs) return;
+  if (!e.target.matches('.set-weight, .set-reps')) return;
+  saveActiveWkt(state.loggerDs);
 });
 
 // ---- JSON import file handler ----
