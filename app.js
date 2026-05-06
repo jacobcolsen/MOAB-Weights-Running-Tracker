@@ -169,6 +169,48 @@ const PROGRESSION_INCREMENT = {
 };
 
 // ============================================================
+//  PHASE 12 — SETTINGS CONSTANTS
+// ============================================================
+
+const GOALS = [
+  { key: 'cut',       label: 'Cut',          sub: 'Lose body fat'     },
+  { key: 'maintain',  label: 'Maintain',     sub: 'Stay at current weight' },
+  { key: 'lean_bulk', label: 'Lean Bulk',    sub: 'Build muscle slowly' },
+  { key: 'run',       label: 'Improve 2-Mi', sub: 'Prioritize running' },
+];
+
+const REST_OPTIONS = [45, 60, 90, 120, 150, 180, 240, 300];
+
+// Curated substitutes for every PROGRAM exercise
+const EXERCISE_ALTERNATIVES = {
+  // Push day
+  'Barbell Bench Press':      ['Barbell Bench Press', 'Dumbbell Flat Press', 'Machine Chest Press', 'Close-Grip Bench Press', 'Floor Press'],
+  'Incline Dumbbell Press':   ['Incline Dumbbell Press', 'Incline Barbell Press', 'Cable Incline Fly', 'Machine Incline Press'],
+  'Standing Overhead Press':  ['Standing Overhead Press', 'Seated Dumbbell Press', 'Arnold Press', 'Machine Shoulder Press', 'Push Press'],
+  'Side Lateral Raise':       ['Side Lateral Raise', 'Cable Lateral Raise', 'Machine Lateral Raise', 'DB Upright Row'],
+  'Triceps Pressdown / Dips': ['Triceps Pressdown / Dips', 'Overhead Triceps Extension', 'Close-Grip Push-Up', 'Cable Kickback'],
+  // Pull day
+  'Deadlift':                 ['Deadlift', 'Trap Bar Deadlift', 'Sumo Deadlift', 'Rack Pull', 'Good Morning'],
+  'Barbell Row':              ['Barbell Row', 'Dumbbell Row', 'T-Bar Row', 'Chest-Supported Row', 'Pendlay Row'],
+  'Pull-up / Lat Pulldown':   ['Pull-up / Lat Pulldown', 'Assisted Pull-up', 'Cable Lat Pulldown', 'Resistance Band Pulldown'],
+  'Seated Cable Row':         ['Seated Cable Row', 'Machine Row', 'Dumbbell Row', 'Band Row'],
+  'Barbell / Dumbbell Curl':  ['Barbell / Dumbbell Curl', 'EZ-Bar Curl', 'Hammer Curl', 'Preacher Curl', 'Cable Curl'],
+  // Legs day
+  'Back Squat':               ['Back Squat', 'Front Squat', 'Goblet Squat', 'Hack Squat', 'Bulgarian Split Squat'],
+  'Romanian Deadlift':        ['Romanian Deadlift', 'Stiff-Leg Deadlift', 'Nordic Curl', 'Good Morning', 'Cable Hamstring Curl'],
+  'Leg Press':                ['Leg Press', 'Bulgarian Split Squat', 'Step-Up (weighted)', 'Hack Squat'],
+  'Calf Raise':               ['Calf Raise', 'Seated Calf Raise', 'Single-Leg Calf Raise', 'Donkey Calf Raise'],
+  'Weighted Cable Crunch':    ['Weighted Cable Crunch', 'Ab Wheel Rollout', 'Hanging Leg Raise', 'Decline Sit-Up'],
+};
+
+const RUN_ALTERNATIVES = {
+  intervals: ['Track intervals', 'Treadmill intervals', 'Stationary bike (high intensity)', 'Stair climber intervals', 'Concept2 rower intervals'],
+  tempo:     ['Road tempo run', 'Treadmill tempo', 'Stationary bike (moderate)', 'Elliptical tempo'],
+  easy:      ['Easy road run', 'Treadmill easy run', 'Brisk walk', 'Elliptical easy', 'Stationary bike (easy)'],
+  trial:     ['2-mile time trial', 'Treadmill time trial', 'Track 2-mile', 'Concept2 2000m row'],
+};
+
+// ============================================================
 //  RUN PLAN — 6-week rotating cycle  (Phase 4)
 //  Weeks repeat: week 7 = week 1, etc.
 //  run_a = Tuesday speed day · run_b = Thursday tempo/pace day
@@ -207,8 +249,14 @@ const Store = {
     RUN_CURRENT:   'moab_run_current',
     RUN_LOGS:      'moab_run_logs',
     STRENGTH_LOGS: 'moab_strength_logs',
-    WEIGHT_LOG:     'moab_weight_log',
-    BODY_CHECKINS:  'moab_body_checkins',
+    WEIGHT_LOG:       'moab_weight_log',
+    BODY_CHECKINS:    'moab_body_checkins',
+    NAME:             'moab_name',
+    GOAL:             'moab_goal',
+    REST_TIMES:       'moab_rest_times',
+    CUSTOM_SCHEDULE:  'moab_custom_schedule',
+    EX_SUBS:          'moab_ex_subs',
+    RUN_SUBS:         'moab_run_subs',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -265,7 +313,8 @@ const Store = {
   getWorkoutType(ds) {
     const override = this.getAssignment(ds);
     if (override !== null) return override;
-    return DEFAULT_SCHEDULE[fromDateStr(ds).getDay()];
+    const custom = this.getCustomSchedule();
+    return (custom || DEFAULT_SCHEDULE)[fromDateStr(ds).getDay()];
   },
 
   getWorkoutInfo(ds) {
@@ -332,6 +381,29 @@ const Store = {
     else { log.push({ ds, weight: w }); log.sort((a, b) => a.ds.localeCompare(b.ds)); }
     this._set(this.KEYS.WEIGHT_LOG, log);
   },
+
+  // ---- Profile ----
+  getName()       { return this._get(this.KEYS.NAME) || ''; },
+  setName(v)      { this._set(this.KEYS.NAME, v); },
+  getGoal()       { return this._get(this.KEYS.GOAL) || ''; },
+  setGoal(v)      { this._set(this.KEYS.GOAL, v); },
+
+  // ---- Rest timer preferences ----
+  getRestTimes()  { return this._get(this.KEYS.REST_TIMES) || { compound: 180, accessory: 90 }; },
+  setRestTimes(v) { this._set(this.KEYS.REST_TIMES, v); },
+
+  // ---- Custom default schedule ----
+  getCustomSchedule()   { return this._get(this.KEYS.CUSTOM_SCHEDULE) || null; },
+  setCustomSchedule(v)  { this._set(this.KEYS.CUSTOM_SCHEDULE, v); },
+  resetCustomSchedule() { localStorage.removeItem(this.KEYS.CUSTOM_SCHEDULE); },
+
+  // ---- Exercise substitutions: { 'Back Squat': 'Front Squat', ... } ----
+  getExerciseSubs()  { return this._get(this.KEYS.EX_SUBS) || {}; },
+  setExerciseSubs(v) { this._set(this.KEYS.EX_SUBS, v); },
+
+  // ---- Run workout alternatives ----
+  getRunSubs()   { return this._get(this.KEYS.RUN_SUBS) || {}; },
+  setRunSubs(v)  { this._set(this.KEYS.RUN_SUBS, v); },
 
   // ---- Body check-ins: [{ ds, weight, waist, notes }] sorted oldest first ----
   getBodyCheckIns() { return this._get(this.KEYS.BODY_CHECKINS) || []; },
@@ -809,6 +881,59 @@ function getWeeklyCompliance(numWeeks) {
 }
 
 // ============================================================
+//  PHASE 12 HELPERS — SUBSTITUTIONS, REST, EXPORT/IMPORT
+// ============================================================
+
+// Apply stored exercise substitutions to a PROGRAM exercise array
+function applyExerciseSubs(exercises) {
+  const subs = Store.getExerciseSubs();
+  if (!Object.keys(subs).length) return exercises;
+  return exercises.map(ex => {
+    const alt = subs[ex.name];
+    return alt ? { ...ex, name: alt } : ex;
+  });
+}
+
+// Get effective rest duration for an exercise, respecting user preferences
+function getExRest(ex) {
+  const rt = Store.getRestTimes();
+  return ex.rest >= 180 ? (rt.compound || 180) : (rt.accessory || 90);
+}
+
+// Export all localStorage data as a timestamped JSON download
+function exportData() {
+  const out = { _version: 'Phase 12', _exportedAt: new Date().toISOString() };
+  Object.values(Store.KEYS).forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v !== null) out[k] = v;
+  });
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `moab-backup-${toDateStr(today())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Import from a JSON string — returns count of keys written, or -1 on parse error
+function importData(jsonStr) {
+  try {
+    const data    = JSON.parse(jsonStr);
+    const validKs = new Set(Object.values(Store.KEYS));
+    let n = 0;
+    Object.entries(data).forEach(([k, v]) => {
+      if (validKs.has(k) && typeof v === 'string') { localStorage.setItem(k, v); n++; }
+    });
+    return n;
+  } catch {
+    return -1;
+  }
+}
+
+// ============================================================
 //  REST TIMER
 // ============================================================
 
@@ -889,6 +1014,7 @@ const state = {
   modalDateStr:  null,
   resetConfirm:  false,
   loggerDs:      null,
+  importResult:  null,   // null | number (>=0 ok, -1 error)
 };
 
 let timerInterval  = null;
@@ -1003,7 +1129,7 @@ function renderToday() {
 
 function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
-  const exercises = PROGRAM[wkt.key];
+  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
   const unit = Store.getUnit();
   const exSection = exercises ? `
     <div class="today-ex-list">
@@ -1128,7 +1254,7 @@ function buildPaceTargets(wktKey, runWkt, goalStr) {
 }
 
 function buildStrengthNextSession(wktKey) {
-  const exercises = PROGRAM[wktKey] || [];
+  const exercises = applyExerciseSubs(PROGRAM[wktKey] || []);
   const unit      = Store.getUnit();
   const ICON      = { increase: '↑', deload: '↓', maintain: '→' };
   const rows = exercises.map(ex => {
@@ -1292,7 +1418,7 @@ function renderStrengthLogger(ds, wkt) {
   showNav(false);
 
   const unit      = Store.getUnit();
-  const exercises = PROGRAM[wkt.key] || [];
+  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
 
   const exCards = exercises.map((ex, i) => {
     const prog   = computeProgression(ex.name, ex.reps);
@@ -1331,7 +1457,7 @@ function renderStrengthLogger(ds, wkt) {
                placeholder="${lastR}" inputmode="numeric" min="0" max="99">
         <span class="set-reps-lbl">reps</span>
         <button class="set-done-btn" data-action="mark-set"
-                data-ex="${i}" data-set="${j}" data-rest="${ex.rest}">○</button>
+                data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
       </div>
     `).join('');
 
@@ -1375,7 +1501,7 @@ function renderStrengthLogger(ds, wkt) {
 
 function finishStrengthWorkout(ds) {
   const wkt       = Store.getWorkoutInfo(ds);
-  const exercises = PROGRAM[wkt.key] || [];
+  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
   const unit      = Store.getUnit();
 
   const exData = exercises.map((ex, i) => ({
@@ -2421,20 +2547,85 @@ function renderSettings() {
   const runGoal    = Store.getRunGoal();
   const goalSecs   = parseMmSs(runGoal);
   const goalPace   = goalSecs ? `${formatMmSs(goalSecs / 2)}/mi` : null;
+  const name       = Store.getName();
+  const goal       = Store.getGoal();
+  const rt         = Store.getRestTimes();
+  const customSch  = Store.getCustomSchedule() || DEFAULT_SCHEDULE;
+  const exSubs     = Store.getExerciseSubs();
+  const runSubs    = Store.getRunSubs();
 
+  // ── Helper: <select> for rest time ──────────────────────────
+  const restSelect = (id, val) => `
+    <select id="${id}" class="settings-select">
+      ${REST_OPTIONS.map(s => `<option value="${s}"${s === val ? ' selected' : ''}>${s}s</option>`).join('')}
+    </select>`;
+
+  // ── Helper: <select> for exercise alternative ──────────────
+  const exSubSelect = (exName) => {
+    const opts = EXERCISE_ALTERNATIVES[exName] || [exName];
+    const cur  = exSubs[exName] || exName;
+    return `
+      <select class="settings-select ex-sub-select" data-orig="${exName}">
+        ${opts.map(o => `<option value="${o}"${o === cur ? ' selected' : ''}>${o}</option>`).join('')}
+      </select>`;
+  };
+
+  // ── Helper: <select> for run alternative ───────────────────
+  const runSubSelect = (type, label) => {
+    const opts = RUN_ALTERNATIVES[type] || [];
+    const cur  = runSubs[type] || '';
+    return `
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:5px;">
+        <span class="settings-row-label">${label}</span>
+        <select class="settings-select run-sub-select" data-run-type="${type}" style="width:100%">
+          <option value="">— No substitute (use plan default) —</option>
+          ${opts.map(o => `<option value="${o}"${o === cur ? ' selected' : ''}>${o}</option>`).join('')}
+        </select>
+      </div>`;
+  };
+
+  // ── Reset confirm HTML ──────────────────────────────────────
   const resetHtml = state.resetConfirm ? `
     <p class="text-sm text-muted mb-12" style="padding:0 4px;line-height:1.5;">
-      This will permanently delete all logs, assignments, and program data.
+      This will permanently delete all logs, assignments, body data, and settings.
     </p>
     <button class="btn btn-danger btn-sm mb-8" data-action="confirm-reset">Yes, Delete Everything</button>
-    <button class="btn btn-secondary btn-sm"    data-action="cancel-reset">Cancel</button>
+    <button class="btn btn-secondary btn-sm"   data-action="cancel-reset">Cancel</button>
   ` : `
     <button class="btn btn-secondary btn-sm" data-action="reset-data">Reset All Data</button>
   `;
 
+  // ── Import state feedback ───────────────────────────────────
+  const importFeedback = state.importResult != null ? `
+    <p class="settings-feedback ${state.importResult >= 0 ? 'ok' : 'err'}">
+      ${state.importResult >= 0
+        ? `Imported ${state.importResult} settings. Reload to see all changes.`
+        : 'Import failed — invalid JSON file.'}
+    </p>` : '';
+
   setView(`
     <div class="pad fade-up pb-safe">
 
+      <!-- ── Profile ─────────────────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-group-label">Profile</div>
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <input type="text" id="s-name" class="form-input"
+                 placeholder="e.g. Jacob" value="${name}">
+        </div>
+        <div class="goal-grid">
+          ${GOALS.map(g => `
+            <button class="goal-btn${goal === g.key ? ' active' : ''}"
+                    data-action="set-goal" data-goal="${g.key}">
+              <span class="goal-btn-label">${g.label}</span>
+              <span class="goal-btn-sub">${g.sub}</span>
+            </button>`).join('')}
+        </div>
+        <button class="btn btn-secondary btn-sm mt-8" data-action="save-profile">Save Profile</button>
+      </div>
+
+      <!-- ── Program ──────────────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-group-label">Program</div>
         <div class="settings-row">
@@ -2453,6 +2644,7 @@ function renderSettings() {
         </button>
       </div>
 
+      <!-- ── Units ────────────────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-group-label">Units</div>
         <div class="settings-row">
@@ -2464,6 +2656,21 @@ function renderSettings() {
         </div>
       </div>
 
+      <!-- ── Rest Timers ──────────────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-group-label">Rest Timers</div>
+        <div class="settings-row">
+          <span class="settings-row-label">Compound lifts</span>
+          ${restSelect('s-rest-compound', rt.compound || 180)}
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Accessory lifts</span>
+          ${restSelect('s-rest-accessory', rt.accessory || 90)}
+        </div>
+        <button class="btn btn-secondary btn-sm mt-8" data-action="save-rest-times">Save Rest Times</button>
+      </div>
+
+      <!-- ── Running ──────────────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-group-label">Running</div>
         <div class="form-group">
@@ -2480,29 +2687,61 @@ function renderSettings() {
           <div class="settings-row" style="margin-bottom:8px;">
             <span class="settings-row-label">Goal Pace</span>
             <span class="settings-row-value" style="color:var(--run-fg);font-weight:700;">${goalPace}</span>
-          </div>
-        ` : ''}
-        <button class="btn btn-secondary btn-sm" data-action="update-run-times">
-          Save Running Times
-        </button>
+          </div>` : ''}
+        <button class="btn btn-secondary btn-sm" data-action="update-run-times">Save Running Times</button>
       </div>
 
+      <!-- ── Default Schedule ─────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-group-label">Default Weekly Schedule</div>
-        ${Object.entries(DEFAULT_SCHEDULE).map(([dow, key]) => {
-          const wkt = WORKOUT_TYPES[key];
-          return `
-            <div class="settings-row" style="gap:10px;">
-              <span class="settings-row-label">${DAYS_LONG[dow]}</span>
-              <span class="type-pill ${wkt.color}" style="margin-bottom:0;font-size:9.5px;">${wkt.name}</span>
-            </div>
-          `;
-        }).join('')}
+        ${[0,1,2,3,4,5,6].map(dow => `
+          <div class="settings-row">
+            <span class="settings-row-label" style="min-width:72px">${DAYS_LONG[dow]}</span>
+            <select class="settings-select sched-select" data-dow="${dow}">
+              ${Object.keys(WORKOUT_TYPES).map(k => `
+                <option value="${k}"${customSch[dow] === k ? ' selected' : ''}>${WORKOUT_TYPES[k].name}</option>`
+              ).join('')}
+            </select>
+          </div>`).join('')}
+        <div class="settings-row mt-8" style="gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" data-action="save-schedule">Save Schedule</button>
+          <button class="btn btn-secondary btn-sm" data-action="reset-schedule">Reset to Default</button>
+        </div>
         <p class="text-xs text-muted mt-8" style="padding:0 4px;line-height:1.5;">
-          Use Move and Swap on any day to adjust your schedule.
+          Applies to future dates. Individual days can still be moved or swapped from the Schedule tab.
         </p>
       </div>
 
+      <!-- ── Exercise Substitutions ───────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-group-label">Exercise Substitutions</div>
+        <p class="text-xs text-muted" style="padding:0 4px 10px;line-height:1.5;">
+          Pick alternatives for any lift. Progression is tracked separately per exercise.
+        </p>
+        ${['push','pull','legs'].map(wktKey => `
+          <div class="sub-wkt-label">${WORKOUT_TYPES[wktKey].name}</div>
+          ${(PROGRAM[wktKey] || []).map(ex => `
+            <div class="settings-row">
+              <span class="settings-row-label sub-ex-name">${ex.name}</span>
+              ${exSubSelect(ex.name)}
+            </div>`).join('')}`).join('')}
+        <button class="btn btn-secondary btn-sm mt-12" data-action="save-ex-subs">Save Substitutions</button>
+      </div>
+
+      <!-- ── Run Workout Alternatives ─────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-group-label">Run Workout Alternatives</div>
+        <p class="text-xs text-muted" style="padding:0 4px 10px;line-height:1.5;">
+          Set alternatives when you can't run outside. Shown as a note in the run log.
+        </p>
+        ${runSubSelect('intervals', 'Speed / Intervals')}
+        ${runSubSelect('tempo',     'Tempo Run')}
+        ${runSubSelect('easy',      'Easy Run')}
+        ${runSubSelect('trial',     'Time Trial')}
+        <button class="btn btn-secondary btn-sm mt-8" data-action="save-run-subs">Save Run Alternatives</button>
+      </div>
+
+      <!-- ── Data ─────────────────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-group-label">Data</div>
         <div class="settings-row">
@@ -2511,8 +2750,20 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 10.0</span>
+          <span class="settings-row-value">Phase 12.0</span>
         </div>
+        <div class="settings-data-btns">
+          <button class="btn btn-secondary btn-sm" data-action="export-data">Export JSON</button>
+          <label class="btn btn-secondary btn-sm settings-import-label" for="import-file-input">
+            Import JSON
+          </label>
+          <input type="file" id="import-file-input" accept=".json,application/json"
+                 class="visually-hidden">
+        </div>
+        <p class="text-xs text-muted mt-8" style="padding:0 4px;line-height:1.5;">
+          Export saves all workout logs, settings, and check-ins. Photos (stored in IndexedDB) are not included.
+        </p>
+        ${importFeedback}
         <div class="mt-12">${resetHtml}</div>
       </div>
 
@@ -2892,12 +3143,76 @@ document.addEventListener('click', e => {
 
     // ── Settings ───────────────────────────────────────────
 
+    case 'save-profile': {
+      const n = $id('s-name')?.value.trim() || '';
+      if (n) Store.setName(n);
+      renderSettings();
+      break;
+    }
+
+    case 'set-goal': {
+      Store.setGoal(el.dataset.goal);
+      renderSettings();
+      break;
+    }
+
+    case 'save-rest-times': {
+      const compound  = parseInt($id('s-rest-compound')?.value,  10) || 180;
+      const accessory = parseInt($id('s-rest-accessory')?.value, 10) || 90;
+      Store.setRestTimes({ compound, accessory });
+      renderSettings();
+      break;
+    }
+
     case 'update-run-times': {
       const cur  = document.getElementById('settings-run-current')?.value.trim() || '';
       const goal = document.getElementById('settings-run-goal')?.value.trim()    || '';
       if (cur)  Store.setRunCurrent(cur);
       if (goal) Store.setRunGoal(goal);
       renderSettings();
+      break;
+    }
+
+    case 'save-schedule': {
+      const custom = {};
+      document.querySelectorAll('.sched-select').forEach(sel => {
+        custom[parseInt(sel.dataset.dow, 10)] = sel.value;
+      });
+      Store.setCustomSchedule(custom);
+      renderSettings();
+      break;
+    }
+
+    case 'reset-schedule': {
+      localStorage.removeItem(Store.KEYS.ASSIGNMENTS);
+      Store.resetCustomSchedule();
+      renderSettings();
+      break;
+    }
+
+    case 'save-ex-subs': {
+      const subs = {};
+      document.querySelectorAll('.ex-sub-select').forEach(sel => {
+        const orig = sel.dataset.orig;
+        if (sel.value && sel.value !== orig) subs[orig] = sel.value;
+      });
+      Store.setExerciseSubs(subs);
+      renderSettings();
+      break;
+    }
+
+    case 'save-run-subs': {
+      const rsubs = {};
+      document.querySelectorAll('.run-sub-select').forEach(sel => {
+        if (sel.value) rsubs[sel.dataset.runType] = sel.value;
+      });
+      Store.setRunSubs(rsubs);
+      renderSettings();
+      break;
+    }
+
+    case 'export-data': {
+      exportData();
       break;
     }
 
@@ -2953,6 +3268,22 @@ document.addEventListener('change', e => {
     }
   };
   reader.readAsDataURL(file);
+});
+
+// ---- JSON import file handler ----
+document.addEventListener('change', e => {
+  const input = e.target;
+  if (input.id !== 'import-file-input') return;
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const n = importData(ev.target.result);
+    state.importResult = n;
+    renderSettings();
+    if (n >= 0) setTimeout(() => { state.importResult = null; }, 5000);
+  };
+  reader.readAsText(file);
 });
 
 // ============================================================
