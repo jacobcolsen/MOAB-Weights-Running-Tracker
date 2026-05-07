@@ -641,7 +641,7 @@ function findNextWorkout(fromDate) {
     const ds  = toDateStr(d);
     const wkt = Store.getWorkoutInfo(ds);
     const log = Store.getDayLog(ds);
-    if (wkt.key !== 'rest' && log?.status !== 'moved') {
+    if (wkt.key !== 'rest' && wkt.key !== 'optional' && log?.status !== 'moved') {
       return { wkt, date: d, label: dayLabel(d) };
     }
   }
@@ -924,7 +924,7 @@ function saveActiveWkt(ds) {
   Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt: existing?.startedAt || Date.now(), exData });
 }
 
-// Restore saved inputs + done states into the logger DOM
+// Restore saved inputs + done states into the logger DOM (from active-wkt record)
 function restoreActiveWkt(active) {
   (active.exData || []).forEach((ex, i) => {
     (ex.sets || []).forEach((s, j) => {
@@ -932,6 +932,23 @@ function restoreActiveWkt(active) {
       const rEl  = $id(`r-${i}-${j}`);
       const row  = $id(`set-${i}-${j}`);
       const btn  = row?.querySelector('.set-done-btn');
+      if (wEl && s.weight) wEl.value = s.weight;
+      if (rEl && s.reps)   rEl.value = s.reps;
+      if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
+    });
+  });
+}
+
+// Pre-populate logger DOM from a previously completed strength log (edit flow)
+function restoreFromStrengthLog(log) {
+  (log.exercises || []).forEach((ex, i) => {
+    const notesEl = $id(`notes-${i}`);
+    if (notesEl && ex.notes) notesEl.value = ex.notes;
+    (ex.sets || []).forEach((s, j) => {
+      const wEl = $id(`w-${i}-${j}`);
+      const rEl = $id(`r-${i}-${j}`);
+      const row = $id(`set-${i}-${j}`);
+      const btn = row?.querySelector('.set-done-btn');
       if (wEl && s.weight) wEl.value = s.weight;
       if (rEl && s.reps)   rEl.value = s.reps;
       if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
@@ -996,6 +1013,26 @@ function importData(jsonStr) {
 //  REST TIMER
 // ============================================================
 
+// Short double-beep using the Web Audio API — works offline, no file needed
+function beepRestDone() {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25].forEach(offset => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.2);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.2);
+    });
+  } catch {}
+  if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+}
+
 function startRestTimer(seconds) {
   clearRestTimer();
   timerRemaining = seconds;
@@ -1006,7 +1043,7 @@ function startRestTimer(seconds) {
   timerInterval = setInterval(() => {
     timerRemaining = Math.max(0, timerRemaining - 1);
     renderTimerCount();
-    if (timerRemaining === 0) clearRestTimer();
+    if (timerRemaining === 0) { beepRestDone(); clearRestTimer(); }
   }, 1000);
 }
 
@@ -1446,10 +1483,8 @@ function buildDoneState(ds, wkt, log) {
     ${nextCard(next)}
     <div class="btn-row mt-16">
       <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
-      ${isRun
-        ? `<button class="btn btn-secondary btn-sm" data-action="do-start" data-date="${ds}">Edit Log</button>`
-        : `<button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>`
-      }
+      <button class="btn btn-secondary btn-sm" data-action="do-start" data-date="${ds}">Edit Log</button>
+      ${isRun ? '' : `<button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>`}
     </div>
   `;
 }
@@ -1644,12 +1679,16 @@ function renderStrengthLogger(ds, wkt) {
   // Restore or initialise active workout record
   const existing = Store.getActiveWkt();
   if (existing?.ds === ds) {
+    // Resume an in-progress session
     restoreActiveWkt(existing);
     startDurationTimer(existing.startedAt);
   } else {
     const startedAt = Date.now();
     Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt, exData: [] });
     startDurationTimer(startedAt);
+    // Pre-fill from completed log when editing a finished workout
+    const savedLog = Store.getStrengthLog(ds);
+    if (savedLog) restoreFromStrengthLog(savedLog);
   }
 }
 
@@ -3256,8 +3295,12 @@ document.addEventListener('click', e => {
       if (!row) break;
       const isDone = row.classList.toggle('set-done');
       el.textContent = isDone ? '✓' : '○';
-      if (isDone) startRestTimer(rest);
-      else        clearRestTimer();
+      if (isDone) {
+        if (navigator.vibrate) navigator.vibrate(40);
+        startRestTimer(rest);
+      } else {
+        clearRestTimer();
+      }
       saveActiveWkt(state.loggerDs);
       break;
     }
