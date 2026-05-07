@@ -1165,8 +1165,7 @@ function buildWeekStrip(t) {
     else if (isToday)                dotCls = 'ws-today';
     else                             dotCls = 'ws-plan';
 
-    const icon = wkt.key === 'rest'     ? '·'
-               : wkt.key === 'optional' ? '·'
+    const icon = (wkt.key === 'rest' || wkt.key === 'optional') ? '·'
                : status === 'completed' ? '✓'
                : status === 'skipped'   ? '×'
                : wkt.name.charAt(0);
@@ -2564,7 +2563,7 @@ async function loadMonthlyComparison() {
   const fmtDate   = dt => `${MONTHS_S[dt.getMonth()]} ${dt.getDate()}`;
 
   const ANGLES = ['front', 'side', 'back'];
-  const cols = (ds, label) => {
+  const cols = (ds) => {
     const datePhotos = byDate[ds] || {};
     return ANGLES.map(a => datePhotos[a]
       ? `<img src="${datePhotos[a]}" class="compare-thumb" alt="${a}">`
@@ -2907,7 +2906,7 @@ function renderSettings() {
         </div>
         <div class="settings-row">
           <span class="settings-row-label">App Version</span>
-          <span class="settings-row-value">Phase 12.0</span>
+          <span class="settings-row-value">Phase 14.0</span>
         </div>
         <div class="settings-data-btns">
           <button class="btn btn-secondary btn-sm" data-action="export-data">Export JSON</button>
@@ -3092,6 +3091,7 @@ function navigate(view) {
   state.loggerDs     = null;
   state.resetConfirm = false;
   clearRestTimer();
+  clearDurationTimer();
   resetStopwatch();
   hideModal();
   switch (view) {
@@ -3271,6 +3271,7 @@ document.addEventListener('click', e => {
       const cur    = parseFloat(input.value) || parseFloat(input.placeholder) || 0;
       const next   = Math.max(0, cur + delta);
       input.value  = Number.isInteger(next) ? String(next) : next.toFixed(1);
+      saveActiveWkt(state.loggerDs);
       break;
     }
 
@@ -3282,6 +3283,7 @@ document.addEventListener('click', e => {
       if (!input) break;
       const cur   = parseInt(input.value) || parseInt(input.placeholder) || 0;
       input.value = Math.max(0, cur + delta);
+      saveActiveWkt(state.loggerDs);
       break;
     }
 
@@ -3293,6 +3295,7 @@ document.addEventListener('click', e => {
         const input = $id(`w-${exIdx}-${j}`);
         if (input) input.value = weight;
       }
+      saveActiveWkt(state.loggerDs);
       break;
     }
 
@@ -3438,7 +3441,6 @@ document.addEventListener('click', e => {
     case 'cancel-reset':  { state.resetConfirm = false; renderSettings(); break; }
     case 'confirm-reset': {
       Store.clearAll();
-      Store.clearActiveWkt();
       clearDurationTimer();
       PhotoDB.clearAll().catch(() => {});
       state.resetConfirm = false;
