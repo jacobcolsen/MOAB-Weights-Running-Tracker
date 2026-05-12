@@ -1256,7 +1256,71 @@ function renderToday() {
     body = buildActiveWorkout(ds, wkt);
   }
 
-  setView(`<div class="pad fade-up">${header}${weekStrip}${body}</div>`);
+  setView(`<div class="pad pb-safe fade-up">${header}${weekStrip}${body}</div>`);
+}
+
+// Shared Skip / Move / Swap action list used on the Today screen.
+// Each row has a colour-coded icon, a clear title, and a one-line
+// consequence so the user knows exactly what will happen before tapping.
+function buildWorkoutOptions(ds) {
+  const chevron = `<svg class="wkt-opt-chevron" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>`;
+
+  const skipIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="15" y1="9" x2="9" y2="15"/>
+    <line x1="9" y1="9" x2="15" y2="15"/>
+  </svg>`;
+
+  const moveIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8"  y1="2" x2="8"  y2="6"/>
+    <line x1="3"  y1="10" x2="21" y2="10"/>
+    <line x1="8"  y1="15" x2="16" y2="15"/>
+    <line x1="12" y1="12" x2="12" y2="18"/>
+  </svg>`;
+
+  const swapIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="17 1 21 5 17 9"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <polyline points="7 23 3 19 7 15"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>`;
+
+  return `
+    <div class="wkt-options">
+      <button class="wkt-opt" data-action="do-skip" data-date="${ds}">
+        <div class="wkt-opt-icon wkt-opt-icon-skip">${skipIcon}</div>
+        <span class="wkt-opt-body">
+          <span class="wkt-opt-title">Skip Today</span>
+          <span class="wkt-opt-sub">Mark as skipped — workout stays on the calendar</span>
+        </span>
+        ${chevron}
+      </button>
+      <button class="wkt-opt" data-action="open-move" data-date="${ds}">
+        <div class="wkt-opt-icon wkt-opt-icon-move">${moveIcon}</div>
+        <span class="wkt-opt-body">
+          <span class="wkt-opt-title">Move to Another Day</span>
+          <span class="wkt-opt-sub">Reschedules this workout; today becomes a rest day</span>
+        </span>
+        ${chevron}
+      </button>
+      <button class="wkt-opt" data-action="open-swap" data-date="${ds}">
+        <div class="wkt-opt-icon wkt-opt-icon-swap">${swapIcon}</div>
+        <span class="wkt-opt-body">
+          <span class="wkt-opt-title">Swap with Another Day</span>
+          <span class="wkt-opt-sub">Trades this workout with a different day's session</span>
+        </span>
+        ${chevron}
+      </button>
+    </div>
+  `;
 }
 
 function buildActiveWorkout(ds, wkt) {
@@ -1317,12 +1381,8 @@ function buildActiveWorkout(ds, wkt) {
       `;
     })()}
 
-    <div class="btn-row-3 mt-10">
-      <button class="btn btn-secondary btn-sm" data-action="do-skip"  data-date="${ds}">Skip</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
-    </div>
     ${nextCard(findNextWorkout(today()))}
+    ${buildWorkoutOptions(ds)}
   `;
 }
 
@@ -1360,12 +1420,7 @@ function buildActiveRunWorkout(ds, wkt) {
     </div>
 
     <button class="btn btn-primary" data-action="do-start" data-date="${ds}">${btnLabel}</button>
-
-    <div class="btn-row-3 mt-10">
-      <button class="btn btn-secondary btn-sm" data-action="do-skip"   data-date="${ds}">Skip</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
-    </div>
+    ${buildWorkoutOptions(ds)}
   `;
 }
 
@@ -1491,6 +1546,10 @@ function buildDoneState(ds, wkt, log) {
 
 function buildSkippedState(ds, wkt) {
   const next = findNextWorkout(today());
+  const chevron = `<svg class="wkt-opt-chevron" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>`;
   return `
     <div class="skipped-banner">
       <div class="skipped-title">Skipped — ${wkt.name}</div>
@@ -1500,9 +1559,41 @@ function buildSkippedState(ds, wkt) {
     <button class="btn btn-ghost mt-16" data-action="do-undo" data-date="${ds}">
       Changed my mind — Log it
     </button>
-    <div class="btn-row mt-10">
-      <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
-      <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
+    <div class="wkt-options">
+      <button class="wkt-opt" data-action="open-move" data-date="${ds}">
+        <div class="wkt-opt-icon wkt-opt-icon-move">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8"  y1="2" x2="8"  y2="6"/>
+            <line x1="3"  y1="10" x2="21" y2="10"/>
+            <line x1="8"  y1="15" x2="16" y2="15"/>
+            <line x1="12" y1="12" x2="12" y2="18"/>
+          </svg>
+        </div>
+        <span class="wkt-opt-body">
+          <span class="wkt-opt-title">Move to Another Day</span>
+          <span class="wkt-opt-sub">Reschedules this workout; today becomes a rest day</span>
+        </span>
+        ${chevron}
+      </button>
+      <button class="wkt-opt" data-action="open-swap" data-date="${ds}">
+        <div class="wkt-opt-icon wkt-opt-icon-swap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"/>
+            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/>
+            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+        </div>
+        <span class="wkt-opt-body">
+          <span class="wkt-opt-title">Swap with Another Day</span>
+          <span class="wkt-opt-sub">Trades this workout with a different day's session</span>
+        </span>
+        ${chevron}
+      </button>
     </div>
   `;
 }
