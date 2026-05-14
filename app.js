@@ -1319,7 +1319,13 @@ function buildActiveWorkout(ds, wkt) {
           }).join('')}
         </div>
       </div>
-    ` : ''}
+    ` : `
+      <div class="last-sess-card last-sess-empty">
+        <div class="last-sess-empty-icon">🏋️</div>
+        <div class="last-sess-empty-title">No previous session logged</div>
+        <div class="last-sess-empty-sub">Get on it — complete this workout to start tracking your weights.</div>
+      </div>
+    `}
 
     ${(() => {
       const active = Store.getActiveWkt();
