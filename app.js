@@ -3541,7 +3541,18 @@ window.addEventListener('offline', updateOfflineBar);
 
 // PWA features require a real origin — skip silently when opened as file://
 if (location.protocol !== 'file:') {
-  // apple-touch-icon + manifest (injected here to avoid CORS errors on file:// opens)
+  // iOS/PWA meta tags + icons + manifest (injected here to avoid CORS errors on file:// opens)
+  [
+    ['apple-mobile-web-app-capable',     '',                     'yes'],
+    ['apple-mobile-web-app-status-bar-style', '',               'black-translucent'],
+    ['apple-mobile-web-app-title',        '',                    'MOAB Training'],
+  ].forEach(([name, , content]) => {
+    const m = document.createElement('meta');
+    m.name    = name;
+    m.content = content;
+    document.head.appendChild(m);
+  });
+
   const touchIcon = document.createElement('link');
   touchIcon.rel   = 'apple-touch-icon';
   touchIcon.href  = './icons/icon-180.png';
