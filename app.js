@@ -773,6 +773,17 @@ function computeProgression(exName, repRangeStr) {
   };
 }
 
+// Return the most recent completed strength log for a given workout key.
+// Result: { ds, exercises: [{name, sets:[{weight,reps,done}]}] } or null.
+function getLastStrengthSession(wktKey) {
+  const logs = Store.getStrengthLogs();
+  const entry = Object.entries(logs)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .find(([, log]) => log.wktKey === wktKey);
+  if (!entry) return null;
+  return { ds: entry[0], exercises: entry[1].exercises || [] };
+}
+
 // ============================================================
 //  STRENGTH ANALYTICS  (Phase 9)
 // ============================================================
@@ -1245,8 +1256,13 @@ function renderToday() {
 
 function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
-  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
-  const unit = Store.getUnit();
+  const exercises  = applyExerciseSubs(PROGRAM[wkt.key] || []);
+  const unit       = Store.getUnit();
+  const lastSess   = getLastStrengthSession(wkt.key);
+  const lastSessDs = lastSess ? fromDateStr(lastSess.ds) : null;
+  const lastSessLbl = lastSessDs
+    ? `${MONTHS_S[lastSessDs.getMonth()]} ${lastSessDs.getDate()}`
+    : null;
   const exSection = exercises ? `
     <div class="today-ex-list">
       ${exercises.map(e => {
@@ -1282,6 +1298,28 @@ function buildActiveWorkout(ds, wkt) {
     </div>
 
     ${exSection}
+
+    ${lastSess ? `
+      <div class="last-sess-card">
+        <div class="last-sess-hdr">
+          <span class="last-sess-title">Last Session</span>
+          <span class="last-sess-date">${lastSessLbl}</span>
+        </div>
+        <div class="last-sess-rows">
+          ${lastSess.exercises.map(ex => {
+            const doneSets = ex.sets.filter(s => s.done && s.weight);
+            if (!doneSets.length) return '';
+            const wLabel = doneSets.map(s => s.weight).join(' / ');
+            const rLabel = doneSets.map(s => s.reps).join(' / ');
+            return `
+              <div class="last-sess-row">
+                <span class="last-sess-ex">${ex.name}</span>
+                <span class="last-sess-w">${wLabel} ${unit} &times; ${rLabel}</span>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    ` : ''}
 
     ${(() => {
       const active = Store.getActiveWkt();
@@ -1497,14 +1535,19 @@ function renderStrengthLogger(ds, wkt) {
   showBack(true);
   showNav(false);
 
-  const unit      = Store.getUnit();
-  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
+  const unit        = Store.getUnit();
+  const exercises   = applyExerciseSubs(PROGRAM[wkt.key] || []);
+  const lastSession = getLastStrengthSession(wkt.key);
 
   const exCards = exercises.map((ex, i) => {
-    const prog   = computeProgression(ex.name, ex.reps);
-    const catCls = CATEGORY_CLASS[ex.category] || 'legs';
-    const lastW  = prog?.lastWeight || '';
-    const lastR  = prog ? (prog.lastReps.split(',')[0]?.trim() || '') : '';
+    const prog     = computeProgression(ex.name, ex.reps);
+    const catCls   = CATEGORY_CLASS[ex.category] || 'legs';
+    const lastW    = prog?.lastWeight || '';
+    const lastR    = prog ? (prog.lastReps.split(',')[0]?.trim() || '') : '';
+
+    // Per-set last session data for this exercise
+    const lastEx   = lastSession?.exercises.find(e => e.name === ex.name);
+    const lastSets = (lastEx?.sets || []).filter(s => s.weight);
 
     const progHtml = prog ? `
       <div class="prog-widget">
@@ -1528,43 +1571,82 @@ function renderStrengthLogger(ds, wkt) {
     ` : `<div class="prog-widget-empty">No previous data</div>`;
 
     const recW = prog?.recommendation || lastW;
-    const repeatBtn = recW ? `
-      <button class="repeat-weight-btn" data-action="repeat-weight"
-              data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
-        Fill ${recW} ${unit} all sets
-      </button>` : '';
+
+    // Fill buttons: show "Use last" and "Use recommended" when they differ
+    let fillBtns = '';
+    if (lastSets.length > 0 && recW) {
+      const wLast = lastSets[0].weight;
+      const wStr  = lastSets.map(s => s.weight).join(',');
+      const rStr  = lastSets.map(s => s.reps).join(',');
+      if (wLast !== recW) {
+        fillBtns = `
+          <div class="fill-btn-row">
+            <button class="fill-btn fill-btn-last" data-action="fill-last"
+                    data-ex="${i}" data-weights="${wStr}" data-reps="${rStr}">
+              Use last · ${wLast} ${unit}
+            </button>
+            <button class="fill-btn fill-btn-rec" data-action="repeat-weight"
+                    data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
+              Use rec. · ${recW} ${unit}
+            </button>
+          </div>`;
+      } else {
+        fillBtns = `
+          <button class="repeat-weight-btn" data-action="repeat-weight"
+                  data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
+            Fill ${recW} ${unit} all sets
+          </button>`;
+      }
+    } else if (recW) {
+      fillBtns = `
+        <button class="repeat-weight-btn" data-action="repeat-weight"
+                data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
+          Fill ${recW} ${unit} all sets
+        </button>`;
+    }
 
     const adjDelta = unit === 'kg' ? 2.5 : 5;
 
-    const setRows = Array.from({ length: ex.sets }, (_, j) => `
-      <div class="logger-set-row" id="set-${i}-${j}">
-        <div class="set-meta">
-          <span class="set-num">${j + 1}</span>
-          <button class="set-done-btn" data-action="mark-set"
-                  data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
-        </div>
-        <div class="set-fields">
-          <div class="set-adj-row">
-            <button class="adj-btn" data-action="adj-weight"
-                    data-ex="${i}" data-set="${j}" data-delta="-${adjDelta}">−</button>
-            <input type="number" class="set-weight" id="w-${i}-${j}"
-                   placeholder="${lastW}" inputmode="decimal" min="0">
-            <span class="set-unit">${unit}</span>
-            <button class="adj-btn" data-action="adj-weight"
-                    data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
+    const setRows = Array.from({ length: ex.sets }, (_, j) => {
+      const prevSet  = lastSets[j];
+      const prevChip = prevSet ? `
+        <button class="last-set-chip" data-action="fill-set-last"
+                data-ex="${i}" data-set="${j}"
+                data-weight="${prevSet.weight}" data-reps="${prevSet.reps || ''}">
+          ↩&thinsp;${prevSet.weight}${prevSet.reps ? ' × ' + prevSet.reps : ''}
+        </button>` : '';
+
+      return `
+        <div class="logger-set-row" id="set-${i}-${j}">
+          <div class="set-meta">
+            <span class="set-num">${j + 1}</span>
+            <button class="set-done-btn" data-action="mark-set"
+                    data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
           </div>
-          <div class="set-adj-row">
-            <button class="adj-btn" data-action="adj-reps"
-                    data-ex="${i}" data-set="${j}" data-delta="-1">−</button>
-            <input type="number" class="set-reps" id="r-${i}-${j}"
-                   placeholder="${lastR}" inputmode="numeric" min="0" max="99">
-            <span class="set-reps-lbl">reps</span>
-            <button class="adj-btn" data-action="adj-reps"
-                    data-ex="${i}" data-set="${j}" data-delta="1">+</button>
+          <div class="set-fields">
+            <div class="set-adj-row">
+              <button class="adj-btn" data-action="adj-weight"
+                      data-ex="${i}" data-set="${j}" data-delta="-${adjDelta}">−</button>
+              <input type="number" class="set-weight" id="w-${i}-${j}"
+                     placeholder="${lastW}" inputmode="decimal" min="0">
+              <span class="set-unit">${unit}</span>
+              <button class="adj-btn" data-action="adj-weight"
+                      data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
+            </div>
+            <div class="set-adj-row">
+              <button class="adj-btn" data-action="adj-reps"
+                      data-ex="${i}" data-set="${j}" data-delta="-1">−</button>
+              <input type="number" class="set-reps" id="r-${i}-${j}"
+                     placeholder="${lastR}" inputmode="numeric" min="0" max="99">
+              <span class="set-reps-lbl">reps</span>
+              <button class="adj-btn" data-action="adj-reps"
+                      data-ex="${i}" data-set="${j}" data-delta="1">+</button>
+            </div>
+            ${prevChip}
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     return `
       <div class="logger-exercise">
@@ -1577,7 +1659,7 @@ function renderStrengthLogger(ds, wkt) {
         </div>
         <div class="logger-ex-hint">${ex.hint}</div>
         ${progHtml}
-        ${repeatBtn}
+        ${fillBtns}
         <div class="logger-sets">${setRows}</div>
         <textarea class="form-input form-textarea logger-notes" id="notes-${i}"
                   placeholder="Notes…"></textarea>
@@ -3069,6 +3151,33 @@ document.addEventListener('click', e => {
         const input = $id(`w-${exIdx}-${j}`);
         if (input) input.value = weight;
       }
+      saveActiveWkt(state.loggerDs);
+      break;
+    }
+
+    case 'fill-last': {
+      const exIdx   = parseInt(el.dataset.ex, 10);
+      const weights = el.dataset.weights.split(',');
+      const reps    = el.dataset.reps.split(',');
+      weights.forEach((w, j) => {
+        const wEl = $id(`w-${exIdx}-${j}`);
+        const rEl = $id(`r-${exIdx}-${j}`);
+        if (wEl && w) wEl.value = w;
+        if (rEl && reps[j]) rEl.value = reps[j];
+      });
+      saveActiveWkt(state.loggerDs);
+      break;
+    }
+
+    case 'fill-set-last': {
+      const exIdx = parseInt(el.dataset.ex, 10);
+      const setIdx = parseInt(el.dataset.set, 10);
+      const w = el.dataset.weight;
+      const r = el.dataset.reps;
+      const wEl = $id(`w-${exIdx}-${setIdx}`);
+      const rEl = $id(`r-${exIdx}-${setIdx}`);
+      if (wEl && w) wEl.value = w;
+      if (rEl && r) rEl.value = r;
       saveActiveWkt(state.loggerDs);
       break;
     }

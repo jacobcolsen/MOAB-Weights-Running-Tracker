@@ -2801,6 +2801,108 @@ input[type="date"]:focus { border-color: var(--accent); }
   flex-shrink: 0;
 }
 
+/* ── Last Session card (Today view) ─────────────────────── */
+.last-sess-card {
+  background: #161616;
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.last-sess-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.last-sess-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.last-sess-date {
+  font-size: 12px;
+  color: #444;
+}
+
+.last-sess-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid #1e1e1e;
+}
+
+.last-sess-ex {
+  font-size: 13px;
+  color: #999;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.last-sess-w {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c0c0c0;
+  flex-shrink: 0;
+}
+
+/* ── Fill buttons in strength logger ────────────────────── */
+.fill-btn-row {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+
+.fill-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: center;
+}
+
+.fill-btn-last {
+  background: #1a1a1a;
+  color: #aaa;
+}
+
+.fill-btn-rec {
+  background: rgba(251,146,60,.12);
+  color: var(--accent);
+  border-color: rgba(251,146,60,.25);
+}
+
+/* ── Per-set last-session chip ───────────────────────────── */
+.last-set-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #272727;
+  background: #181818;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-weight: 500;
+}
+.last-set-chip:active { opacity: 0.7; }
+
 /* ── Drag-to-reorder (Schedule) ─────────────────────────── */
 .is-draggable { touch-action: pan-y; }
 
