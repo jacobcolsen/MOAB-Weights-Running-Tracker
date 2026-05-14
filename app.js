@@ -3654,16 +3654,11 @@ document.addEventListener('change', e => {
 //  DRAG-TO-REORDER (Schedule view)
 // ============================================================
 
-document.addEventListener('touchstart', e => {
-  const handle = e.target.closest('.sched-drag-handle');
-  if (!handle) return;
-  const row = handle.closest('[data-draggable]');
-  if (!row) return;
+// ── shared begin/update/end logic ─────────────────────────────
 
-  const touch  = e.touches[0];
-  const rect   = row.getBoundingClientRect();
-
-  const ghost  = row.cloneNode(true);
+function _dragBegin(row, clientX, clientY) {
+  const rect  = row.getBoundingClientRect();
+  const ghost = row.cloneNode(true);
   Object.assign(ghost.style, {
     position:      'fixed',
     left:          rect.left + 'px',
@@ -3684,29 +3679,22 @@ document.addEventListener('touchstart', e => {
     fromDs:  row.dataset.date,
     fromRow: row,
     ghost,
-    offX:    touch.clientX - rect.left,
-    offY:    touch.clientY - rect.top,
+    offX:    clientX - rect.left,
+    offY:    clientY - rect.top,
     overRow: null,
   };
+}
 
-  document.addEventListener('touchmove',   _dragMove,   { passive: false });
-  document.addEventListener('touchend',    _dragEnd,    { passive: true  });
-  document.addEventListener('touchcancel', _dragCancel, { passive: true  });
-}, { passive: true });
-
-function _dragMove(e) {
+function _dragUpdate(clientX, clientY) {
   if (!_drag) return;
-  e.preventDefault();
-
-  const touch = e.touches[0];
   const { ghost, offX, offY } = _drag;
 
-  ghost.style.left = (touch.clientX - offX) + 'px';
-  ghost.style.top  = (touch.clientY - offY) + 'px';
+  ghost.style.left = (clientX - offX) + 'px';
+  ghost.style.top  = (clientY - offY) + 'px';
 
-  // Find the row under the finger (hide ghost first so it doesn't intercept)
+  // Find the row under the pointer (hide ghost so it doesn't intercept)
   ghost.style.visibility = 'hidden';
-  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const el = document.elementFromPoint(clientX, clientY);
   ghost.style.visibility = '';
 
   const targetRow = el?.closest('.sched-row');
@@ -3727,10 +3715,9 @@ function _dragMove(e) {
   }
 }
 
-function _dragEnd() {
+function _dragCommit() {
   if (!_drag) return;
   const { fromDs, overRow } = _drag;
-
   if (overRow) {
     const toDs  = overRow.dataset.date;
     const toWkt = Store.getWorkoutInfo(toDs);
@@ -3741,11 +3728,7 @@ function _dragEnd() {
     }
     renderSchedule();
   }
-
-  _dragCleanup();
 }
-
-function _dragCancel() { _dragCleanup(); }
 
 function _dragCleanup() {
   if (!_drag) return;
@@ -3754,9 +3737,58 @@ function _dragCleanup() {
   _drag.overRow?.classList.remove('drag-over');
   _drag = null;
 
-  document.removeEventListener('touchmove',   _dragMove);
-  document.removeEventListener('touchend',    _dragEnd);
-  document.removeEventListener('touchcancel', _dragCancel);
+  document.removeEventListener('touchmove',   _dragTouchMove);
+  document.removeEventListener('touchend',    _dragTouchEnd);
+  document.removeEventListener('touchcancel', _dragCleanup);
+  document.removeEventListener('mousemove',   _dragMouseMove);
+  document.removeEventListener('mouseup',     _dragMouseUp);
+  document.body.style.userSelect = '';
+}
+
+// ── Touch ──────────────────────────────────────────────────────
+
+document.addEventListener('touchstart', e => {
+  const handle = e.target.closest('.sched-drag-handle');
+  if (!handle) return;
+  const row = handle.closest('[data-draggable]');
+  if (!row) return;
+  const t = e.touches[0];
+  _dragBegin(row, t.clientX, t.clientY);
+  document.addEventListener('touchmove',   _dragTouchMove,  { passive: false });
+  document.addEventListener('touchend',    _dragTouchEnd,   { passive: true  });
+  document.addEventListener('touchcancel', _dragCleanup,    { passive: true  });
+}, { passive: true });
+
+function _dragTouchMove(e) {
+  e.preventDefault();
+  const t = e.touches[0];
+  _dragUpdate(t.clientX, t.clientY);
+}
+
+function _dragTouchEnd() {
+  _dragCommit();
+  _dragCleanup();
+}
+
+// ── Mouse ──────────────────────────────────────────────────────
+
+document.addEventListener('mousedown', e => {
+  const handle = e.target.closest('.sched-drag-handle');
+  if (!handle) return;
+  const row = handle.closest('[data-draggable]');
+  if (!row) return;
+  e.preventDefault();
+  _dragBegin(row, e.clientX, e.clientY);
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', _dragMouseMove);
+  document.addEventListener('mouseup',   _dragMouseUp);
+});
+
+function _dragMouseMove(e) { _dragUpdate(e.clientX, e.clientY); }
+
+function _dragMouseUp() {
+  _dragCommit();
+  _dragCleanup();
 }
 
 // ============================================================
