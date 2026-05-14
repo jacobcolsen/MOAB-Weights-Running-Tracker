@@ -3243,12 +3243,13 @@ function refresh() {
 // ============================================================
 
 document.addEventListener('click', e => {
+  // Nav tabs use data-view, not data-action — must be checked before the action guard below
+  const navBtn = e.target.closest('.nav-btn');
+  if (navBtn) { navigate(navBtn.dataset.view); return; }
+
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const action = el.dataset.action;
-
-  // Bottom nav
-  if (el.classList.contains('nav-btn')) { navigate(el.dataset.view); return; }
 
   switch (action) {
 
@@ -3649,7 +3650,8 @@ window.addEventListener('offline', updateOfflineBar);
 //  SERVICE WORKER REGISTRATION
 // ============================================================
 
-if ('serviceWorker' in navigator) {
+// SW requires a real origin (http/https/localhost) — skip silently when opened as file://
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
