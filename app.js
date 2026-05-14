@@ -3778,7 +3778,12 @@ window.addEventListener('offline', updateOfflineBar);
 
 // PWA features require a real origin — skip silently when opened as file://
 if (location.protocol !== 'file:') {
-  // Manifest link (injected here to avoid CORS error on file:// opens)
+  // apple-touch-icon + manifest (injected here to avoid CORS errors on file:// opens)
+  const touchIcon = document.createElement('link');
+  touchIcon.rel   = 'apple-touch-icon';
+  touchIcon.href  = './icons/icon-180.png';
+  document.head.appendChild(touchIcon);
+
   const manifestLink = document.createElement('link');
   manifestLink.rel  = 'manifest';
   manifestLink.href = './manifest.json';
