@@ -417,7 +417,7 @@ body {
   background: #161616;
   border: 1px solid #1e1e1e;
   margin-bottom: 8px;
-  cursor: pointer;
+  cursor: default;
   transition: border-color 0.12s;
   min-height: 70px;
 }
@@ -425,8 +425,7 @@ body {
 .sched-row.is-today  { border-color: var(--accent); }
 .sched-row.is-done   { background: var(--success-bg); border-color: var(--legs-border); }
 .sched-row.is-skipped { opacity: 0.5; }
-.sched-row.is-rest   { cursor: default; opacity: 0.45; }
-.sched-row:active:not(.is-rest) { opacity: 0.78; }
+.sched-row.is-rest   { opacity: 0.45; }
 
 .sched-date {
   text-align: center;

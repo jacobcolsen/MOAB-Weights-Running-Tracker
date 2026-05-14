@@ -532,9 +532,6 @@ function completeDay(ds) {
 }
 
 // Mark a day as skipped (preserves the workout assignment)
-function skipDay(ds) {
-  Store.setDayLog(ds, { status: 'skipped', skippedAt: new Date().toISOString() });
-}
 
 // Remove the log for a day (resets to 'planned')
 function undoDay(ds) {
@@ -565,18 +562,6 @@ function swapWorkouts(ds1, ds2) {
   const type2 = Store.getWorkoutType(ds2);
   Store.setAssignment(ds1, type2);
   Store.setAssignment(ds2, type1);
-}
-
-// Undo a move: restore both source and destination to their defaults.
-function undoMove(fromDs, log) {
-  // Remove source override so it falls back to default
-  Store.deleteAssignment(fromDs);
-  Store.deleteDayLog(fromDs);
-
-  // Remove destination override (if it was the move target)
-  if (log?.movedTo) {
-    Store.deleteAssignment(log.movedTo);
-  }
 }
 
 // ============================================================
@@ -641,7 +626,7 @@ function findNextWorkout(fromDate) {
     const ds  = toDateStr(d);
     const wkt = Store.getWorkoutInfo(ds);
     const log = Store.getDayLog(ds);
-    if (wkt.key !== 'rest' && wkt.key !== 'optional' && log?.status !== 'moved') {
+    if (wkt.key !== 'rest' && wkt.key !== 'optional') {
       return { wkt, date: d, label: dayLabel(d) };
     }
   }
@@ -1250,10 +1235,6 @@ function renderToday() {
     body = buildRestDay(t);
   } else if (status === 'completed') {
     body = buildDoneState(ds, wkt, log);
-  } else if (status === 'skipped') {
-    body = buildSkippedState(ds, wkt);
-  } else if (status === 'moved') {
-    body = buildMovedState(ds, log);
   } else {
     body = buildActiveWorkout(ds, wkt);
   }
@@ -1261,69 +1242,6 @@ function renderToday() {
   setView(`<div class="pad pb-safe fade-up">${header}${weekStrip}${body}</div>`);
 }
 
-// Shared Skip / Move / Swap action list used on the Today screen.
-// Each row has a colour-coded icon, a clear title, and a one-line
-// consequence so the user knows exactly what will happen before tapping.
-function buildWorkoutOptions(ds) {
-  const chevron = `<svg class="wkt-opt-chevron" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="9 18 15 12 9 6"/>
-  </svg>`;
-
-  const skipIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <line x1="15" y1="9" x2="9" y2="15"/>
-    <line x1="9" y1="9" x2="15" y2="15"/>
-  </svg>`;
-
-  const moveIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/>
-    <line x1="8"  y1="2" x2="8"  y2="6"/>
-    <line x1="3"  y1="10" x2="21" y2="10"/>
-    <line x1="8"  y1="15" x2="16" y2="15"/>
-    <line x1="12" y1="12" x2="12" y2="18"/>
-  </svg>`;
-
-  const swapIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="17 1 21 5 17 9"/>
-    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-    <polyline points="7 23 3 19 7 15"/>
-    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-  </svg>`;
-
-  return `
-    <div class="wkt-options">
-      <button class="wkt-opt" data-action="do-skip" data-date="${ds}">
-        <div class="wkt-opt-icon wkt-opt-icon-skip">${skipIcon}</div>
-        <span class="wkt-opt-body">
-          <span class="wkt-opt-title">Skip Today</span>
-          <span class="wkt-opt-sub">Mark as skipped — workout stays on the calendar</span>
-        </span>
-        ${chevron}
-      </button>
-      <button class="wkt-opt" data-action="open-move" data-date="${ds}">
-        <div class="wkt-opt-icon wkt-opt-icon-move">${moveIcon}</div>
-        <span class="wkt-opt-body">
-          <span class="wkt-opt-title">Move to Another Day</span>
-          <span class="wkt-opt-sub">Reschedules this workout; today becomes a rest day</span>
-        </span>
-        ${chevron}
-      </button>
-      <button class="wkt-opt" data-action="open-swap" data-date="${ds}">
-        <div class="wkt-opt-icon wkt-opt-icon-swap">${swapIcon}</div>
-        <span class="wkt-opt-body">
-          <span class="wkt-opt-title">Swap with Another Day</span>
-          <span class="wkt-opt-sub">Trades this workout with a different day's session</span>
-        </span>
-        ${chevron}
-      </button>
-    </div>
-  `;
-}
 
 function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
@@ -1384,7 +1302,6 @@ function buildActiveWorkout(ds, wkt) {
     })()}
 
     ${nextCard(findNextWorkout(today()))}
-    ${buildWorkoutOptions(ds)}
   `;
 }
 
@@ -1422,7 +1339,6 @@ function buildActiveRunWorkout(ds, wkt) {
     </div>
 
     <button class="btn btn-primary" data-action="do-start" data-date="${ds}">${btnLabel}</button>
-    ${buildWorkoutOptions(ds)}
   `;
 }
 
@@ -1541,81 +1457,7 @@ function buildDoneState(ds, wkt, log) {
     <div class="btn-row mt-16">
       <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
       <button class="btn btn-secondary btn-sm" data-action="do-start" data-date="${ds}">Edit Log</button>
-      ${isRun ? '' : `<button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>`}
     </div>
-  `;
-}
-
-function buildSkippedState(ds, wkt) {
-  const next = findNextWorkout(today());
-  const chevron = `<svg class="wkt-opt-chevron" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="9 18 15 12 9 6"/>
-  </svg>`;
-  return `
-    <div class="skipped-banner">
-      <div class="skipped-title">Skipped — ${wkt.name}</div>
-      <div class="skipped-sub">This workout is still on the calendar.</div>
-    </div>
-    ${nextCard(next)}
-    <button class="btn btn-ghost mt-16" data-action="do-undo" data-date="${ds}">
-      Changed my mind — Log it
-    </button>
-    <div class="wkt-options">
-      <button class="wkt-opt" data-action="open-move" data-date="${ds}">
-        <div class="wkt-opt-icon wkt-opt-icon-move">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8"  y1="2" x2="8"  y2="6"/>
-            <line x1="3"  y1="10" x2="21" y2="10"/>
-            <line x1="8"  y1="15" x2="16" y2="15"/>
-            <line x1="12" y1="12" x2="12" y2="18"/>
-          </svg>
-        </div>
-        <span class="wkt-opt-body">
-          <span class="wkt-opt-title">Move to Another Day</span>
-          <span class="wkt-opt-sub">Reschedules this workout; today becomes a rest day</span>
-        </span>
-        ${chevron}
-      </button>
-      <button class="wkt-opt" data-action="open-swap" data-date="${ds}">
-        <div class="wkt-opt-icon wkt-opt-icon-swap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="17 1 21 5 17 9"/>
-            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-            <polyline points="7 23 3 19 7 15"/>
-            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-          </svg>
-        </div>
-        <span class="wkt-opt-body">
-          <span class="wkt-opt-title">Swap with Another Day</span>
-          <span class="wkt-opt-sub">Trades this workout with a different day's session</span>
-        </span>
-        ${chevron}
-      </button>
-    </div>
-  `;
-}
-
-function buildMovedState(ds, log) {
-  const toDate  = log?.movedTo ? fromDateStr(log.movedTo) : null;
-  const toLbl   = toDate ? `${DAYS_LONG[toDate.getDay()]}, ${MONTHS_S[toDate.getMonth()]} ${toDate.getDate()}` : 'another day';
-  const next    = findNextWorkout(today());
-  const origWkt = log?.originalType ? WORKOUT_TYPES[log.originalType] : null;
-
-  return `
-    <div class="skipped-banner">
-      <div class="skipped-title">${origWkt ? origWkt.name : 'Workout'} was moved</div>
-      <div class="skipped-sub">Rescheduled to ${toLbl}</div>
-    </div>
-    ${nextCard(next)}
-    <button class="btn btn-secondary btn-sm mt-16" data-action="do-undo-move"
-            data-date="${ds}" data-log='${JSON.stringify(log)}'>
-      Undo Move
-    </button>
   `;
 }
 
@@ -2041,7 +1883,6 @@ function renderSchedule() {
 
     return `
       <div class="sched-row${rowCls}"
-           data-action="${isRest ? '' : 'sched-tap'}"
            data-date="${ds}"
            ${isDraggable ? 'data-draggable="true"' : ''}>
         <div class="sched-date">
@@ -2083,7 +1924,6 @@ function renderSchedule() {
       </div>
       ${rows}
       <p class="text-xs text-muted text-center mt-16" style="line-height:1.6;">
-        Tap any day to Start, Skip, Move, or Swap.<br>
         Drag <span style="color:#555">⠿</span> to reorder planned workouts.
       </p>
     </div>
@@ -3075,161 +2915,6 @@ function renderSettings() {
 }
 
 // ============================================================
-//  MODALS
-// ============================================================
-
-// ---- Action sheet: tapping a day in the schedule (or Today sub-views) ----
-function openActionSheet(ds) {
-  state.modalPage    = 'action';
-  state.modalDateStr = ds;
-
-  const wkt    = Store.getWorkoutInfo(ds);
-  const log    = Store.getDayLog(ds);
-  const status = log?.status || 'planned';
-  const d      = fromDateStr(ds);
-  const lbl    = dayLabel(d);
-
-  let actions = '';
-
-  if (status === 'moved') {
-    const toD   = log?.movedTo ? fromDateStr(log.movedTo) : null;
-    const toLbl = toD ? `${DAYS_LONG[toD.getDay()]}, ${MONTHS_S[toD.getMonth()]} ${toD.getDate()}` : '—';
-    actions = `
-      <p class="text-sm text-muted text-center mb-12">
-        ${log?.originalType ? WORKOUT_TYPES[log.originalType]?.name : 'Workout'} was moved to ${toLbl}.
-      </p>
-      <button class="btn btn-secondary btn-sm" data-action="do-undo-move"
-              data-date="${ds}" data-log='${JSON.stringify(log)}'>
-        Undo Move
-      </button>
-    `;
-  } else if (status === 'completed') {
-    actions = `
-      <div class="btn-row mb-0">
-        <button class="btn btn-secondary btn-sm" data-action="do-undo"  data-date="${ds}">Undo</button>
-        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
-      </div>
-    `;
-  } else if (status === 'skipped') {
-    actions = `
-      <button class="btn btn-ghost mb-10" data-action="do-undo" data-date="${ds}">Undo Skip</button>
-      <div class="btn-row-3">
-        <button class="btn btn-secondary btn-sm" data-action="do-start"  data-date="${ds}">Start</button>
-        <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
-        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
-      </div>
-    `;
-  } else {
-    // planned
-    actions = `
-      <button class="btn btn-primary mb-10" data-action="do-start" data-date="${ds}">
-        Start Workout
-      </button>
-      <div class="btn-row-3">
-        <button class="btn btn-secondary btn-sm" data-action="do-skip"  data-date="${ds}">Skip</button>
-        <button class="btn btn-secondary btn-sm" data-action="open-move" data-date="${ds}">Move</button>
-        <button class="btn btn-secondary btn-sm" data-action="open-swap" data-date="${ds}">Swap</button>
-      </div>
-    `;
-  }
-
-  showModal(`
-    <div class="sheet-header">
-      <div class="type-pill ${wkt.color}" style="margin-bottom:8px;">
-        ${wkt.emoji}&nbsp; ${labelForType(wkt.key)}
-      </div>
-      <div class="modal-title">${wkt.name}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 16px;">
-        <span class="text-sm text-muted">${lbl}</span>
-        ${statusBadge(status === 'planned' ? null : status)}
-      </div>
-    </div>
-    ${actions}
-    <button class="btn btn-secondary btn-sm mt-10" data-action="close-modal">Cancel</button>
-  `);
-}
-
-// ---- Move modal: pick a destination day ----
-function openMoveModal(ds) {
-  state.modalPage = 'move';
-  const wkt  = Store.getWorkoutInfo(ds);
-  const from = fromDateStr(ds);
-
-  // Offer next 14 days; skip already-completed days
-  const options = [];
-  for (let i = 1; i <= 14; i++) {
-    const d    = addDays(from, i);
-    const tDs  = toDateStr(d);
-    const log  = Store.getDayLog(tDs);
-    if (log?.status === 'completed') continue;
-    const destWkt = Store.getWorkoutInfo(tDs);
-    options.push({ d, ds: tDs, destWkt });
-  }
-
-  const rows = options.map(o => `
-    <div class="modal-day-option" data-action="confirm-move" data-from="${ds}" data-to="${o.ds}">
-      <div>
-        <div class="modal-day-option-label">${dayLabel(o.d)}</div>
-        <div class="modal-day-option-sub">Currently: ${o.destWkt.name}</div>
-      </div>
-      <span class="modal-day-arrow">→</span>
-    </div>
-  `).join('');
-
-  showModal(`
-    <div class="modal-title">Move Workout</div>
-    <div class="modal-sub">
-      Move <strong>${wkt.name}</strong> to a new day.
-      The original day becomes a rest day.
-    </div>
-    <div class="modal-day-grid">${rows || '<p class="text-muted text-sm text-center">No available days in the next 14 days.</p>'}</div>
-    <button class="btn btn-secondary btn-sm mt-8"
-            data-action="back-to-sheet" data-date="${ds}">← Back</button>
-  `);
-}
-
-// ---- Swap modal: pick a day to exchange with ----
-function openSwapModal(ds) {
-  state.modalPage = 'swap';
-  const wkt  = Store.getWorkoutInfo(ds);
-  const from = fromDateStr(ds);
-
-  // Offer ±7 days around the source day, skip rest days and completed days
-  const options = [];
-  for (let i = -6; i <= 13; i++) {
-    if (i === 0) continue;
-    const d   = addDays(from, i);
-    const tDs = toDateStr(d);
-    const destWkt = Store.getWorkoutInfo(tDs);
-    if (destWkt.key === 'rest') continue;
-    const log = Store.getDayLog(tDs);
-    if (log?.status === 'completed') continue;
-    options.push({ d, ds: tDs, destWkt });
-  }
-
-  const rows = options.map(o => `
-    <div class="modal-day-option" data-action="confirm-swap" data-date1="${ds}" data-date2="${o.ds}">
-      <div>
-        <div class="modal-day-option-label">${dayLabel(o.d)}</div>
-        <div class="modal-day-option-sub">${o.destWkt.name}</div>
-      </div>
-      <span class="modal-day-arrow">⇄</span>
-    </div>
-  `).join('');
-
-  showModal(`
-    <div class="modal-title">Swap Workouts</div>
-    <div class="modal-sub">
-      Swap <strong>${wkt.name}</strong> with another day's workout.
-      Both days exchange their assignments.
-    </div>
-    <div class="modal-day-grid">${rows || '<p class="text-muted text-sm text-center">No swappable workouts nearby.</p>'}</div>
-    <button class="btn btn-secondary btn-sm mt-8"
-            data-action="back-to-sheet" data-date="${ds}">← Back</button>
-  `);
-}
-
-// ============================================================
 //  NAVIGATION
 // ============================================================
 
@@ -3289,15 +2974,6 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'do-skip': {
-      const ds = el.dataset.date;
-      if (Store.getActiveWkt()?.ds === ds) { Store.clearActiveWkt(); clearDurationTimer(); }
-      skipDay(ds);
-      hideModal();
-      refresh();
-      break;
-    }
-
     case 'do-undo': {
       const ds = el.dataset.date;
       undoDay(ds);
@@ -3306,57 +2982,8 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'do-undo-move': {
-      const ds  = el.dataset.date;
-      let   log;
-      try { log = JSON.parse(el.dataset.log || 'null'); } catch { log = null; }
-      undoMove(ds, log);
-      hideModal();
-      refresh();
-      break;
-    }
-
-    // ── Modal openers ──────────────────────────────────────
-
-    case 'open-move': {
-      openMoveModal(el.dataset.date);
-      break;
-    }
-
-    case 'open-swap': {
-      openSwapModal(el.dataset.date);
-      break;
-    }
-
-    case 'back-to-sheet': {
-      openActionSheet(el.dataset.date);
-      break;
-    }
-
     case 'close-modal': {
       hideModal();
-      break;
-    }
-
-    // ── Confirm move ───────────────────────────────────────
-
-    case 'confirm-move': {
-      const fromDs = el.dataset.from;
-      const toDs   = el.dataset.to;
-      moveWorkout(fromDs, toDs);
-      hideModal();
-      refresh();
-      break;
-    }
-
-    // ── Confirm swap ───────────────────────────────────────
-
-    case 'confirm-swap': {
-      const ds1 = el.dataset.date1;
-      const ds2 = el.dataset.date2;
-      swapWorkouts(ds1, ds2);
-      hideModal();
-      refresh();
       break;
     }
 
@@ -3365,11 +2992,6 @@ document.addEventListener('click', e => {
     case 'sched-nav': {
       state.schedWeekOff += parseInt(el.dataset.delta, 10);
       renderSchedule();
-      break;
-    }
-
-    case 'sched-tap': {
-      openActionSheet(el.dataset.date);
       break;
     }
 
