@@ -1120,6 +1120,8 @@ let stopwatchInterval = null;
 let stopwatchElapsed  = 0;
 let stopwatchRunning  = false;
 
+let _drag = null;
+
 // ============================================================
 //  DOM HELPERS
 // ============================================================
@@ -2008,11 +2010,13 @@ function renderSchedule() {
     const isRest  = wkt.key === 'rest';
 
     // Row classes
+    const isDraggable = !isRest && status === 'planned';
     let rowCls = '';
-    if (isToday)             rowCls += ' is-today';
+    if (isToday)               rowCls += ' is-today';
     if (status === 'completed') rowCls += ' is-done';
     if (status === 'skipped')   rowCls += ' is-skipped';
-    if (isRest)              rowCls += ' is-rest';
+    if (isRest)                rowCls += ' is-rest';
+    if (isDraggable)           rowCls += ' is-draggable';
 
     // Status icon (right side)
     const iconMap = { completed: '✅', skipped: '—', moved: '📆' };
@@ -2025,10 +2029,21 @@ function renderSchedule() {
       sub = `Moved to ${DAYS_LONG[toD.getDay()]} ${toD.getDate()}`;
     }
 
+    const dragHandle = isDraggable ? `
+      <div class="sched-drag-handle" aria-label="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6"  x2="16" y2="6"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+          <line x1="8" y1="18" x2="16" y2="18"/>
+        </svg>
+      </div>` : '';
+
     return `
       <div class="sched-row${rowCls}"
            data-action="${isRest ? '' : 'sched-tap'}"
-           data-date="${ds}">
+           data-date="${ds}"
+           ${isDraggable ? 'data-draggable="true"' : ''}>
         <div class="sched-date">
           <div class="sched-date-abbr">${DAYS_S[d.getDay()]}</div>
           <div class="sched-date-num">${d.getDate()}</div>
@@ -2040,6 +2055,7 @@ function renderSchedule() {
         <div class="sched-right">
           ${!isRest ? statusBadge(status === 'planned' ? null : status) : ''}
           <span class="sched-arrow">${statusIcon}</span>
+          ${dragHandle}
         </div>
       </div>
     `;
@@ -2067,7 +2083,8 @@ function renderSchedule() {
       </div>
       ${rows}
       <p class="text-xs text-muted text-center mt-16" style="line-height:1.6;">
-        Tap any day to Start, Skip, Move, or Swap.
+        Tap any day to Start, Skip, Move, or Swap.<br>
+        Drag <span style="color:#555">⠿</span> to reorder planned workouts.
       </p>
     </div>
   `);
@@ -3632,6 +3649,115 @@ document.addEventListener('change', e => {
   };
   reader.readAsText(file);
 });
+
+// ============================================================
+//  DRAG-TO-REORDER (Schedule view)
+// ============================================================
+
+document.addEventListener('touchstart', e => {
+  const handle = e.target.closest('.sched-drag-handle');
+  if (!handle) return;
+  const row = handle.closest('[data-draggable]');
+  if (!row) return;
+
+  const touch  = e.touches[0];
+  const rect   = row.getBoundingClientRect();
+
+  const ghost  = row.cloneNode(true);
+  Object.assign(ghost.style, {
+    position:      'fixed',
+    left:          rect.left + 'px',
+    top:           rect.top  + 'px',
+    width:         rect.width + 'px',
+    margin:        '0',
+    opacity:       '0.9',
+    pointerEvents: 'none',
+    zIndex:        '9999',
+    transform:     'scale(1.03)',
+    boxShadow:     '0 10px 40px rgba(0,0,0,0.55)',
+    transition:    'none',
+  });
+  document.body.appendChild(ghost);
+  row.classList.add('drag-source');
+
+  _drag = {
+    fromDs:  row.dataset.date,
+    fromRow: row,
+    ghost,
+    offX:    touch.clientX - rect.left,
+    offY:    touch.clientY - rect.top,
+    overRow: null,
+  };
+
+  document.addEventListener('touchmove',   _dragMove,   { passive: false });
+  document.addEventListener('touchend',    _dragEnd,    { passive: true  });
+  document.addEventListener('touchcancel', _dragCancel, { passive: true  });
+}, { passive: true });
+
+function _dragMove(e) {
+  if (!_drag) return;
+  e.preventDefault();
+
+  const touch = e.touches[0];
+  const { ghost, offX, offY } = _drag;
+
+  ghost.style.left = (touch.clientX - offX) + 'px';
+  ghost.style.top  = (touch.clientY - offY) + 'px';
+
+  // Find the row under the finger (hide ghost first so it doesn't intercept)
+  ghost.style.visibility = 'hidden';
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  ghost.style.visibility = '';
+
+  const targetRow = el?.closest('.sched-row');
+
+  if (_drag.overRow && _drag.overRow !== targetRow) {
+    _drag.overRow.classList.remove('drag-over');
+    _drag.overRow = null;
+  }
+
+  if (
+    targetRow &&
+    targetRow !== _drag.fromRow &&
+    !targetRow.classList.contains('is-done') &&
+    !targetRow.classList.contains('is-skipped')
+  ) {
+    targetRow.classList.add('drag-over');
+    _drag.overRow = targetRow;
+  }
+}
+
+function _dragEnd() {
+  if (!_drag) return;
+  const { fromDs, overRow } = _drag;
+
+  if (overRow) {
+    const toDs  = overRow.dataset.date;
+    const toWkt = Store.getWorkoutInfo(toDs);
+    if (toWkt.key === 'rest') {
+      moveWorkout(fromDs, toDs);
+    } else {
+      swapWorkouts(fromDs, toDs);
+    }
+    renderSchedule();
+  }
+
+  _dragCleanup();
+}
+
+function _dragCancel() { _dragCleanup(); }
+
+function _dragCleanup() {
+  if (!_drag) return;
+  _drag.ghost?.remove();
+  _drag.fromRow?.classList.remove('drag-source');
+  _drag.overRow?.classList.remove('drag-over');
+  _drag = null;
+
+  document.removeEventListener('touchmove',   _dragMove);
+  document.removeEventListener('touchend',    _dragEnd);
+  document.removeEventListener('touchcancel', _dragCancel);
+}
 
 // ============================================================
 //  OFFLINE INDICATOR

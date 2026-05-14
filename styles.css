@@ -2801,3 +2801,32 @@ input[type="date"]:focus { border-color: var(--accent); }
   color: #333;
   flex-shrink: 0;
 }
+
+/* ── Drag-to-reorder (Schedule) ─────────────────────────── */
+.is-draggable { touch-action: pan-y; }
+
+.sched-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -6px;
+  color: #3a3a3a;
+  flex-shrink: 0;
+  touch-action: none;
+  cursor: grab;
+}
+.sched-drag-handle svg { width: 18px; height: 18px; }
+
+.sched-row.drag-source {
+  opacity: 0.25 !important;
+  transition: opacity 0.1s;
+}
+
+.sched-row.drag-over {
+  border-color: var(--accent) !important;
+  background: rgba(251, 146, 60, 0.08) !important;
+  transform: scale(1.005);
+  transition: border-color 0.1s, background 0.1s;
+}
