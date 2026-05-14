@@ -3650,11 +3650,20 @@ window.addEventListener('offline', updateOfflineBar);
 //  SERVICE WORKER REGISTRATION
 // ============================================================
 
-// SW requires a real origin (http/https/localhost) — skip silently when opened as file://
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+// PWA features require a real origin — skip silently when opened as file://
+if (location.protocol !== 'file:') {
+  // Manifest link (injected here to avoid CORS error on file:// opens)
+  const manifestLink = document.createElement('link');
+  manifestLink.rel  = 'manifest';
+  manifestLink.href = './manifest.json';
+  document.head.appendChild(manifestLink);
+
+  // Service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 }
 
 // ============================================================
