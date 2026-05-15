@@ -2879,6 +2879,49 @@ input[type="date"]:focus { border-color: var(--accent); }
   line-height: 1.5;
 }
 
+/* ── Gym / Home mode toggle (Today view) ────────────────── */
+.bw-mode-toggle {
+  display: flex;
+  gap: 0;
+  background: #111;
+  border: 1px solid #282828;
+  border-radius: 12px;
+  padding: 3px;
+  margin: 4px 0 12px;
+  align-self: flex-start;
+}
+.bw-mode-btn {
+  flex: 1;
+  padding: 7px 16px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background .15s, color .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bw-mode-btn.active {
+  background: #222;
+  color: #e0e0e0;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+/* ── Bodyweight logger banner ────────────────────────────── */
+.bw-logger-banner {
+  background: rgba(32,148,122,.15);
+  border-bottom: 1px solid rgba(32,148,122,.25);
+  color: #4fd1b8;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 7px 16px;
+}
+
 /* ── Fill buttons in strength logger ────────────────────── */
 .fill-btn-row {
   display: flex;

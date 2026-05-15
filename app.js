@@ -114,6 +114,35 @@ const PROGRAM = {
 };
 
 // ============================================================
+//  BODYWEIGHT PROGRAM  (Home / No-gym alternative)
+//  Same muscle groups as PROGRAM; equipment-free or household items.
+// ============================================================
+
+const PROGRAM_BW = {
+  push: [
+    { name:'Push-up',               sets:3, reps:'8–20',  category:'Chest',     hint:'Hands shoulder-width · full depth · elbows 45° from torso',              rest:60 },
+    { name:'Decline Push-up',       sets:3, reps:'8–15',  category:'Chest',     hint:'Feet elevated on chair · targets upper chest · control the descent',      rest:60 },
+    { name:'Pike Push-up',          sets:3, reps:'6–12',  category:'Shoulders', hint:'Hips high in an inverted V · lower crown toward floor · press back up',   rest:60 },
+    { name:'Lateral Raise',         sets:3, reps:'10–15', category:'Shoulders', hint:'Use resistance band or water bottles · lead with elbows · no shrugging',  rest:45 },
+    { name:'Triceps Dip (Chair)',    sets:3, reps:'6–12',  category:'Triceps',   hint:'Hands on chair behind you · elbows point back · lower until 90° bend',   rest:60 },
+  ],
+  pull: [
+    { name:'Pull-up',               sets:3, reps:'3–10',  category:'Back',   hint:'Dead hang start · drive elbows to hips · chin clears bar · full extension at bottom', rest:90 },
+    { name:'Inverted Row',          sets:3, reps:'6–12',  category:'Back',   hint:'Lie under sturdy table · grip edge · body straight · pull chest to table',            rest:60 },
+    { name:'Superman Hold',         sets:3, reps:'8–15',  category:'Back',   hint:'Face down on floor · simultaneously lift arms and legs · squeeze glutes at top',       rest:45 },
+    { name:'Face Pull (Band)',       sets:3, reps:'10–15', category:'Back',   hint:'Anchor band at face height · pull to ears with elbows high and flared wide',          rest:45 },
+    { name:'Chin-up / Band Curl',   sets:3, reps:'4–10',  category:'Biceps', hint:'Supinated-grip chin-up, or stand on band and curl with full supination at top',       rest:60 },
+  ],
+  legs: [
+    { name:'Bodyweight Squat',      sets:3, reps:'15–25', category:'Legs', hint:'Feet shoulder-width · chest tall · full depth · drive knees out over toes',             rest:60 },
+    { name:'Single-Leg RDL',        sets:3, reps:'8–12',  category:'Legs', hint:'Hinge on one leg · back flat · reach hand toward floor · feel hamstring stretch',       rest:60 },
+    { name:'Bulgarian Split Squat', sets:3, reps:'8–12',  category:'Legs', hint:'Rear foot on chair · front knee tracks toes · lower back knee toward floor',            rest:60 },
+    { name:'Single-Leg Calf Raise', sets:4, reps:'12–20', category:'Legs', hint:'Use wall for balance · full stretch at bottom · hard pause at top',                    rest:45 },
+    { name:'Hollow Body Hold',      sets:3, reps:'20–30', category:'Core', hint:'Lower back pressed to floor · arms overhead · legs extended and lifted · breathe',     rest:45 },
+  ],
+};
+
+// ============================================================
 //  EQUIPMENT TYPES & PLATE CALCULATOR
 // ============================================================
 
@@ -313,6 +342,7 @@ const Store = {
     CUSTOM_SCHEDULE:  'moab_custom_schedule',
     EX_SUBS:          'moab_ex_subs',
     RUN_SUBS:         'moab_run_subs',
+    BODYWEIGHT_DAYS:  'moab_bw_days',
   },
 
   _get(key)      { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
@@ -465,6 +495,16 @@ const Store = {
   // ---- Run workout alternatives ----
   getRunSubs()   { return this._get(this.KEYS.RUN_SUBS) || {}; },
   setRunSubs(v)  { this._set(this.KEYS.RUN_SUBS, v); },
+
+  // ---- Bodyweight (home) mode: { [ds]: true } ----
+  getBodyweightDay(ds) {
+    return !!(this._get(this.KEYS.BODYWEIGHT_DAYS) || {})[ds];
+  },
+  setBodyweightDay(ds, val) {
+    const d = this._get(this.KEYS.BODYWEIGHT_DAYS) || {};
+    if (val) d[ds] = true; else delete d[ds];
+    this._set(this.KEYS.BODYWEIGHT_DAYS, d);
+  },
 
   // ---- Body check-ins: [{ ds, weight, waist, notes }] sorted oldest first ----
   getBodyCheckIns() { return this._get(this.KEYS.BODY_CHECKINS) || []; },
@@ -829,12 +869,13 @@ function computeProgression(exName, repRangeStr) {
 }
 
 // Return the most recent completed strength log for a given workout key.
+// bodyweight flag separates gym sessions from home sessions.
 // Result: { ds, exercises: [{name, sets:[{weight,reps,done}]}] } or null.
-function getLastStrengthSession(wktKey) {
+function getLastStrengthSession(wktKey, bodyweight = false) {
   const logs = Store.getStrengthLogs();
   const entry = Object.entries(logs)
     .sort((a, b) => b[0].localeCompare(a[0]))
-    .find(([, log]) => log.wktKey === wktKey);
+    .find(([, log]) => log.wktKey === wktKey && !!log.bodyweight === bodyweight);
   if (!entry) return null;
   return { ds: entry[0], exercises: entry[1].exercises || [] };
 }
@@ -962,8 +1003,10 @@ function clearDurationTimer() {
 function saveActiveWkt(ds) {
   if (!ds) return;
   const wkt       = Store.getWorkoutInfo(ds);
-  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
   const existing  = Store.getActiveWkt();
+  const isBW      = existing?.ds === ds ? (existing.bodyweight ?? Store.getBodyweightDay(ds)) : Store.getBodyweightDay(ds);
+  const baseEx    = (isBW ? PROGRAM_BW : PROGRAM)[wkt.key] || [];
+  const exercises = applyExerciseSubs(baseEx);
   const exData    = exercises.map((ex, i) => ({
     name: ex.name,
     sets: Array.from({ length: ex.sets }, (_, j) => ({
@@ -972,7 +1015,7 @@ function saveActiveWkt(ds) {
       done:   $id(`set-${i}-${j}`)?.classList.contains('set-done') || false,
     })),
   }));
-  Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt: existing?.startedAt || Date.now(), exData });
+  Store.setActiveWkt({ ds, wktKey: wkt.key, bodyweight: isBW, startedAt: existing?.startedAt || Date.now(), exData });
 }
 
 // Restore saved inputs + done states into the logger DOM (from active-wkt record)
@@ -1313,34 +1356,23 @@ function renderToday() {
 
 function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
-  const exercises  = applyExerciseSubs(PROGRAM[wkt.key] || []);
-  const unit       = Store.getUnit();
-  let lastSess = getLastStrengthSession(wkt.key);
 
-  // ── DEMO: remove this block after testing ──────────────────
-  if (!lastSess && wkt.key === 'legs') {
-    lastSess = {
-      ds: '2026-04-30',
-      exercises: [
-        { name: 'Back Squat',            sets: [{ weight:'185', reps:'5', done:true }, { weight:'185', reps:'5', done:true }, { weight:'185', reps:'4', done:true }] },
-        { name: 'Romanian Deadlift',     sets: [{ weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }] },
-        { name: 'Leg Press',             sets: [{ weight:'270', reps:'8', done:true }, { weight:'270', reps:'8', done:true }, { weight:'270', reps:'7', done:true }] },
-        { name: 'Calf Raise',            sets: [{ weight:'135', reps:'10', done:true}, { weight:'135', reps:'10', done:true}, { weight:'135', reps:'9', done:true }, { weight:'135', reps:'9', done:true }] },
-        { name: 'Weighted Cable Crunch', sets: [{ weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'9', done:true }] },
-      ],
-    };
-  }
-  // ── END DEMO ───────────────────────────────────────────────
+  const isBW       = Store.getBodyweightDay(ds);
+  const baseEx     = (isBW ? PROGRAM_BW : PROGRAM)[wkt.key] || [];
+  const exercises  = applyExerciseSubs(baseEx);
+  const unit       = Store.getUnit();
+  const lastSess   = getLastStrengthSession(wkt.key, isBW);
 
   const lastSessDs  = lastSess ? fromDateStr(lastSess.ds) : null;
   const lastSessLbl = lastSessDs
     ? `${MONTHS_S[lastSessDs.getMonth()]} ${lastSessDs.getDate()}`
     : null;
+
   const exSection = exercises ? `
     <div class="today-ex-list">
       ${exercises.map(e => {
         const cls  = CATEGORY_CLASS[e.category] || 'legs';
-        const prog = computeProgression(e.name, e.reps);
+        const prog = isBW ? null : computeProgression(e.name, e.reps);
         const progHtml = prog ? `
           <div class="prog-today-hint">
             <span class="prog-today-rec">${prog.recommendation} ${unit}</span>
@@ -1363,6 +1395,51 @@ function buildActiveWorkout(ds, wkt) {
     </div>
   ` : '';
 
+  const lastSessHtml = lastSess ? `
+    <div class="last-sess-card">
+      <div class="last-sess-hdr">
+        <span class="last-sess-title">Last Session</span>
+        <span class="last-sess-date">${lastSessLbl}</span>
+      </div>
+      <div class="last-sess-rows">
+        ${lastSess.exercises.map(ex => {
+          const doneSets = ex.sets.filter(s => s.done && (s.weight || s.reps));
+          if (!doneSets.length) return '';
+          const wLabel = doneSets.map(s => s.weight || 'BW').join(' / ');
+          const rLabel = doneSets.map(s => s.reps).join(' / ');
+          return `
+            <div class="last-sess-row">
+              <span class="last-sess-ex">${ex.name}</span>
+              <span class="last-sess-w">${wLabel}${!isBW ? ' ' + unit : ''} &times; ${rLabel}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : `
+    <div class="last-sess-card last-sess-empty">
+      <div class="last-sess-empty-icon">${isBW ? '🏠' : '🏋️'}</div>
+      <div class="last-sess-empty-title">No previous session logged</div>
+      <div class="last-sess-empty-sub">${isBW ? 'Complete this home workout to start tracking.' : 'Get on it — complete this workout to start tracking your weights.'}</div>
+    </div>
+  `;
+
+  const active    = Store.getActiveWkt();
+  const hasResume = active?.ds === ds && (active.exData || []).some(ex => ex.sets?.some(s => s.weight || s.reps || s.done));
+
+  const startBtns = hasResume ? `
+    <div class="resume-banner">
+      <div class="resume-banner-text">In-progress workout found</div>
+      <div class="resume-banner-sub">Started ${(() => {
+        const mins = Math.round((Date.now() - active.startedAt) / 60000);
+        return mins < 1 ? 'just now' : `${mins} min ago`;
+      })()}</div>
+    </div>
+    <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Resume Workout</button>
+    <button class="btn btn-secondary btn-sm mt-8" data-action="start-fresh" data-date="${ds}">Start Fresh</button>
+  ` : `
+    <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Start Workout</button>
+  `;
+
   return `
     <div class="workout-card ${wkt.color}">
       <div class="type-pill ${wkt.color}">${wkt.emoji}&nbsp; ${labelForType(wkt.key)}</div>
@@ -1370,54 +1447,16 @@ function buildActiveWorkout(ds, wkt) {
       <div class="workout-card-sub">${wkt.sub}</div>
     </div>
 
+    <div class="bw-mode-toggle">
+      <button class="bw-mode-btn${!isBW ? ' active' : ''}"
+              data-action="set-bw-mode" data-date="${ds}" data-bw="0">🏋️ Gym</button>
+      <button class="bw-mode-btn${isBW ? ' active' : ''}"
+              data-action="set-bw-mode" data-date="${ds}" data-bw="1">🏠 Home</button>
+    </div>
+
     ${exSection}
-
-    ${lastSess ? `
-      <div class="last-sess-card">
-        <div class="last-sess-hdr">
-          <span class="last-sess-title">Last Session</span>
-          <span class="last-sess-date">${lastSessLbl}</span>
-        </div>
-        <div class="last-sess-rows">
-          ${lastSess.exercises.map(ex => {
-            const doneSets = ex.sets.filter(s => s.done && s.weight);
-            if (!doneSets.length) return '';
-            const wLabel = doneSets.map(s => s.weight).join(' / ');
-            const rLabel = doneSets.map(s => s.reps).join(' / ');
-            return `
-              <div class="last-sess-row">
-                <span class="last-sess-ex">${ex.name}</span>
-                <span class="last-sess-w">${wLabel} ${unit} &times; ${rLabel}</span>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>
-    ` : `
-      <div class="last-sess-card last-sess-empty">
-        <div class="last-sess-empty-icon">🏋️</div>
-        <div class="last-sess-empty-title">No previous session logged</div>
-        <div class="last-sess-empty-sub">Get on it — complete this workout to start tracking your weights.</div>
-      </div>
-    `}
-
-    ${(() => {
-      const active = Store.getActiveWkt();
-      const hasResume = active?.ds === ds && (active.exData || []).some(ex => ex.sets?.some(s => s.weight || s.reps || s.done));
-      return hasResume ? `
-        <div class="resume-banner">
-          <div class="resume-banner-text">In-progress workout found</div>
-          <div class="resume-banner-sub">Started ${(() => {
-            const mins = Math.round((Date.now() - active.startedAt) / 60000);
-            return mins < 1 ? 'just now' : `${mins} min ago`;
-          })()}</div>
-        </div>
-        <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Resume Workout</button>
-        <button class="btn btn-secondary btn-sm mt-8" data-action="start-fresh" data-date="${ds}">Start Fresh</button>
-      ` : `
-        <button class="btn btn-primary" data-action="do-start" data-date="${ds}">Start Workout</button>
-      `;
-    })()}
-
+    ${lastSessHtml}
+    ${startBtns}
     ${nextCard(findNextWorkout(today()))}
   `;
 }
@@ -1614,34 +1653,24 @@ function renderStrengthLogger(ds, wkt) {
   showBack(true);
   showNav(false);
 
+  const existing    = Store.getActiveWkt();
+  const isBW        = existing?.ds === ds
+    ? (existing.bodyweight ?? Store.getBodyweightDay(ds))
+    : Store.getBodyweightDay(ds);
   const unit        = Store.getUnit();
-  const exercises   = applyExerciseSubs(PROGRAM[wkt.key] || []);
-  let lastSession = getLastStrengthSession(wkt.key);
-
-  // ── DEMO: remove this block after testing ──────────────────
-  if (!lastSession && wkt.key === 'legs') {
-    lastSession = {
-      ds: '2026-04-30',
-      exercises: [
-        { name: 'Back Squat',            sets: [{ weight:'185', reps:'5', done:true }, { weight:'185', reps:'5', done:true }, { weight:'185', reps:'4', done:true }] },
-        { name: 'Romanian Deadlift',     sets: [{ weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }] },
-        { name: 'Leg Press',             sets: [{ weight:'270', reps:'8', done:true }, { weight:'270', reps:'8', done:true }, { weight:'270', reps:'7', done:true }] },
-        { name: 'Calf Raise',            sets: [{ weight:'135', reps:'10', done:true}, { weight:'135', reps:'10', done:true}, { weight:'135', reps:'9', done:true }, { weight:'135', reps:'9', done:true }] },
-        { name: 'Weighted Cable Crunch', sets: [{ weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'9', done:true }] },
-      ],
-    };
-  }
-  // ── END DEMO ───────────────────────────────────────────────
+  const baseEx      = (isBW ? PROGRAM_BW : PROGRAM)[wkt.key] || [];
+  const exercises   = applyExerciseSubs(baseEx);
+  const lastSession = getLastStrengthSession(wkt.key, isBW);
 
   const exCards = exercises.map((ex, i) => {
-    const prog     = computeProgression(ex.name, ex.reps);
+    const prog     = isBW ? null : computeProgression(ex.name, ex.reps);
     const catCls   = CATEGORY_CLASS[ex.category] || 'legs';
     const lastW    = prog?.lastWeight || '';
     const lastR    = prog ? (prog.lastReps.split(',')[0]?.trim() || '') : '';
 
     // Per-set last session data for this exercise
     const lastEx   = lastSession?.exercises.find(e => e.name === ex.name);
-    const lastSets = (lastEx?.sets || []).filter(s => s.weight);
+    const lastSets = (lastEx?.sets || []).filter(s => s.done && (s.weight || s.reps));
 
     const progHtml = prog ? `
       <div class="prog-widget">
@@ -1662,54 +1691,56 @@ function renderStrengthLogger(ds, wkt) {
           <div class="prog-why-body">${prog.detail}</div>
         </details>
       </div>
-    ` : (lastSets.length === 0 ? `<div class="prog-widget-empty">No previous data</div>` : '');
+    ` : (lastSets.length === 0 && !isBW ? `<div class="prog-widget-empty">No previous data</div>` : '');
 
     const recW = prog?.recommendation || lastW;
 
     // Fill buttons: show "Use last" and "Use recommended" when they differ
     let fillBtns = '';
-    if (lastSets.length > 0 && recW) {
-      const wLast = lastSets[0].weight;
-      const wStr  = lastSets.map(s => s.weight).join(',');
-      const rStr  = lastSets.map(s => s.reps).join(',');
-      if (wLast !== recW) {
-        fillBtns = `
-          <div class="fill-btn-row">
-            <button class="fill-btn fill-btn-last" data-action="fill-last"
-                    data-ex="${i}" data-weights="${wStr}" data-reps="${rStr}">
-              Use last · ${wLast} ${unit}
-            </button>
-            <button class="fill-btn fill-btn-rec" data-action="repeat-weight"
+    if (!isBW) {
+      if (lastSets.length > 0 && recW) {
+        const wLast = lastSets[0].weight;
+        const wStr  = lastSets.map(s => s.weight).join(',');
+        const rStr  = lastSets.map(s => s.reps).join(',');
+        if (wLast !== recW) {
+          fillBtns = `
+            <div class="fill-btn-row">
+              <button class="fill-btn fill-btn-last" data-action="fill-last"
+                      data-ex="${i}" data-weights="${wStr}" data-reps="${rStr}">
+                Use last · ${wLast} ${unit}
+              </button>
+              <button class="fill-btn fill-btn-rec" data-action="repeat-weight"
+                      data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
+                Use rec. · ${recW} ${unit}
+              </button>
+            </div>`;
+        } else {
+          fillBtns = `
+            <button class="repeat-weight-btn" data-action="repeat-weight"
                     data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
-              Use rec. · ${recW} ${unit}
-            </button>
-          </div>`;
-      } else {
+              Fill ${recW} ${unit} all sets
+            </button>`;
+        }
+      } else if (recW) {
         fillBtns = `
           <button class="repeat-weight-btn" data-action="repeat-weight"
                   data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
             Fill ${recW} ${unit} all sets
           </button>`;
       }
-    } else if (recW) {
-      fillBtns = `
-        <button class="repeat-weight-btn" data-action="repeat-weight"
-                data-ex="${i}" data-weight="${recW}" data-sets="${ex.sets}">
-          Fill ${recW} ${unit} all sets
-        </button>`;
     }
 
     const adjDelta = unit === 'kg' ? 2.5 : 5;
 
-    const isBarbell = BARBELL_EXERCISES.has(ex.name);
+    const isBarbell = !isBW && BARBELL_EXERCISES.has(ex.name);
 
     const setRows = Array.from({ length: ex.sets }, (_, j) => {
       const prevSet  = lastSets[j];
       const prevChip = prevSet ? `
         <button class="last-set-chip" data-action="fill-set-last"
                 data-ex="${i}" data-set="${j}"
-                data-weight="${prevSet.weight}" data-reps="${prevSet.reps || ''}">
-          Last: ${prevSet.weight} ${unit}${prevSet.reps ? ' × ' + prevSet.reps + ' reps' : ''}
+                data-weight="${prevSet.weight || ''}" data-reps="${prevSet.reps || ''}">
+          Last: ${prevSet.weight ? prevSet.weight + ' ' + unit : 'BW'}${prevSet.reps ? ' × ' + prevSet.reps + ' reps' : ''}
         </button>` : '';
 
       return `
@@ -1773,6 +1804,7 @@ function renderStrengthLogger(ds, wkt) {
           <span class="wkt-duration" id="wkt-duration">0:00</span>
         </span>
       </div>
+      ${isBW ? `<div class="bw-logger-banner">🏠 Home / Bodyweight Mode</div>` : ''}
       <div class="rest-timer timer-hidden" id="rest-timer">
         <div class="rest-timer-inner">
           <span class="rest-timer-label">Rest</span>
@@ -1784,21 +1816,20 @@ function renderStrengthLogger(ds, wkt) {
         ${exCards}
         <button class="btn btn-primary mt-20 mb-safe"
                 data-action="finish-workout" data-date="${ds}">
-          Finish Workout
+          ${isBW ? 'Finish Home Workout' : 'Finish Workout'}
         </button>
       </div>
     </div>
   `);
 
   // Restore or initialise active workout record
-  const existing = Store.getActiveWkt();
   if (existing?.ds === ds) {
     // Resume an in-progress session
     restoreActiveWkt(existing);
     startDurationTimer(existing.startedAt);
   } else {
     const startedAt = Date.now();
-    Store.setActiveWkt({ ds, wktKey: wkt.key, startedAt, exData: [] });
+    Store.setActiveWkt({ ds, wktKey: wkt.key, bodyweight: isBW, startedAt, exData: [] });
     startDurationTimer(startedAt);
     // Pre-fill from completed log when editing a finished workout
     const savedLog = Store.getStrengthLog(ds);
@@ -1808,7 +1839,9 @@ function renderStrengthLogger(ds, wkt) {
 
 function finishStrengthWorkout(ds) {
   const wkt       = Store.getWorkoutInfo(ds);
-  const exercises = applyExerciseSubs(PROGRAM[wkt.key] || []);
+  const isBW      = !!(Store.getActiveWkt()?.bodyweight);
+  const baseEx    = (isBW ? PROGRAM_BW : PROGRAM)[wkt.key] || [];
+  const exercises = applyExerciseSubs(baseEx);
   const unit      = Store.getUnit();
 
   const exData = exercises.map((ex, i) => ({
@@ -1825,6 +1858,7 @@ function finishStrengthWorkout(ds) {
   Store.setStrengthLog(ds, {
     wktKey:      wkt.key,
     wktName:     wkt.name,
+    bodyweight:  isBW,
     unit,
     completedAt: new Date().toISOString(),
     exercises:   exData,
@@ -3163,6 +3197,17 @@ document.addEventListener('click', e => {
 
     case 'close-modal': {
       hideModal();
+      break;
+    }
+
+    // ── Bodyweight / home mode toggle ──────────────────────
+
+    case 'set-bw-mode': {
+      const ds  = el.dataset.date;
+      const bw  = el.dataset.bw === '1';
+      Store.setBodyweightDay(ds, bw);
+      Store.clearActiveWkt();
+      renderToday();
       break;
     }
 
