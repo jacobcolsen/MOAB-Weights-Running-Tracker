@@ -113,6 +113,61 @@ const PROGRAM = {
   ],
 };
 
+// ============================================================
+//  EQUIPMENT TYPES & PLATE CALCULATOR
+// ============================================================
+
+const BARBELL_EXERCISES = new Set([
+  // Push
+  'Barbell Bench Press', 'Close-Grip Bench Press', 'Floor Press', 'Incline Barbell Press',
+  'Standing Overhead Press', 'Push Press',
+  // Pull
+  'Deadlift', 'Trap Bar Deadlift', 'Sumo Deadlift', 'Rack Pull', 'Good Morning',
+  'Barbell Row', 'Pendlay Row', 'T-Bar Row',
+  'Barbell / Dumbbell Curl', 'EZ-Bar Curl',
+  // Legs
+  'Back Squat', 'Front Squat', 'Hack Squat', 'Romanian Deadlift', 'Stiff-Leg Deadlift',
+]);
+
+const BAR_WEIGHT  = { lbs: 45, kg: 20 };
+const PLATE_SIZES = {
+  lbs: [45, 35, 25, 10, 5, 2.5],
+  kg:  [20, 15, 10, 5, 2.5, 1.25],
+};
+
+function calcPlateBreakdown(totalWeight, unit) {
+  const total = parseFloat(totalWeight);
+  const bar   = BAR_WEIGHT[unit] || 45;
+  if (isNaN(total) || total < bar) return null;
+  const eachSide = (total - bar) / 2;
+  const sizes    = PLATE_SIZES[unit] || PLATE_SIZES.lbs;
+  const result   = [];
+  let rem = eachSide;
+  for (const p of sizes) {
+    const n = Math.floor(rem / p + 1e-6);
+    if (n > 0) { result.push([n, p]); rem -= n * p; }
+  }
+  if (rem > 0.15) return null;
+  return { bar, result };
+}
+
+function formatPlateBreakdown(weightVal, unit) {
+  if (!weightVal) return '';
+  const data = calcPlateBreakdown(weightVal, unit);
+  if (!data) return '';
+  if (!data.result.length) return `${data.bar} ${unit} bar only`;
+  const parts = data.result.map(([n, p]) => `${n > 1 ? n + '×' : ''}${p}`);
+  return `${data.bar} + ${parts.join(' + ')} each side`;
+}
+
+function syncPlateHint(exIdx, setIdx) {
+  const el = $id(`ph-${exIdx}-${setIdx}`);
+  if (!el) return;
+  const wEl = $id(`w-${exIdx}-${setIdx}`);
+  const w   = wEl?.value || '';
+  el.textContent = formatPlateBreakdown(w, Store.getUnit());
+}
+
 // Map category string → CSS class key
 const CATEGORY_CLASS = {
   Chest:     'chest',
@@ -931,6 +986,7 @@ function restoreActiveWkt(active) {
       if (wEl && s.weight) wEl.value = s.weight;
       if (rEl && s.reps)   rEl.value = s.reps;
       if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
+      syncPlateHint(i, j);
     });
   });
 }
@@ -948,6 +1004,7 @@ function restoreFromStrengthLog(log) {
       if (wEl && s.weight) wEl.value = s.weight;
       if (rEl && s.reps)   rEl.value = s.reps;
       if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
+      syncPlateHint(i, j);
     });
   });
 }
@@ -1258,8 +1315,24 @@ function buildActiveWorkout(ds, wkt) {
   if (wkt.key === 'run_a' || wkt.key === 'run_b') return buildActiveRunWorkout(ds, wkt);
   const exercises  = applyExerciseSubs(PROGRAM[wkt.key] || []);
   const unit       = Store.getUnit();
-  const lastSess   = getLastStrengthSession(wkt.key);
-  const lastSessDs = lastSess ? fromDateStr(lastSess.ds) : null;
+  let lastSess = getLastStrengthSession(wkt.key);
+
+  // ── DEMO: remove this block after testing ──────────────────
+  if (!lastSess && wkt.key === 'legs') {
+    lastSess = {
+      ds: '2026-04-30',
+      exercises: [
+        { name: 'Back Squat',            sets: [{ weight:'185', reps:'5', done:true }, { weight:'185', reps:'5', done:true }, { weight:'185', reps:'4', done:true }] },
+        { name: 'Romanian Deadlift',     sets: [{ weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }] },
+        { name: 'Leg Press',             sets: [{ weight:'270', reps:'8', done:true }, { weight:'270', reps:'8', done:true }, { weight:'270', reps:'7', done:true }] },
+        { name: 'Calf Raise',            sets: [{ weight:'135', reps:'10', done:true}, { weight:'135', reps:'10', done:true}, { weight:'135', reps:'9', done:true }, { weight:'135', reps:'9', done:true }] },
+        { name: 'Weighted Cable Crunch', sets: [{ weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'9', done:true }] },
+      ],
+    };
+  }
+  // ── END DEMO ───────────────────────────────────────────────
+
+  const lastSessDs  = lastSess ? fromDateStr(lastSess.ds) : null;
   const lastSessLbl = lastSessDs
     ? `${MONTHS_S[lastSessDs.getMonth()]} ${lastSessDs.getDate()}`
     : null;
@@ -1543,7 +1616,22 @@ function renderStrengthLogger(ds, wkt) {
 
   const unit        = Store.getUnit();
   const exercises   = applyExerciseSubs(PROGRAM[wkt.key] || []);
-  const lastSession = getLastStrengthSession(wkt.key);
+  let lastSession = getLastStrengthSession(wkt.key);
+
+  // ── DEMO: remove this block after testing ──────────────────
+  if (!lastSession && wkt.key === 'legs') {
+    lastSession = {
+      ds: '2026-04-30',
+      exercises: [
+        { name: 'Back Squat',            sets: [{ weight:'185', reps:'5', done:true }, { weight:'185', reps:'5', done:true }, { weight:'185', reps:'4', done:true }] },
+        { name: 'Romanian Deadlift',     sets: [{ weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }, { weight:'155', reps:'5', done:true }] },
+        { name: 'Leg Press',             sets: [{ weight:'270', reps:'8', done:true }, { weight:'270', reps:'8', done:true }, { weight:'270', reps:'7', done:true }] },
+        { name: 'Calf Raise',            sets: [{ weight:'135', reps:'10', done:true}, { weight:'135', reps:'10', done:true}, { weight:'135', reps:'9', done:true }, { weight:'135', reps:'9', done:true }] },
+        { name: 'Weighted Cable Crunch', sets: [{ weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'10', done:true}, { weight:'50',  reps:'9', done:true }] },
+      ],
+    };
+  }
+  // ── END DEMO ───────────────────────────────────────────────
 
   const exCards = exercises.map((ex, i) => {
     const prog     = computeProgression(ex.name, ex.reps);
@@ -1574,7 +1662,7 @@ function renderStrengthLogger(ds, wkt) {
           <div class="prog-why-body">${prog.detail}</div>
         </details>
       </div>
-    ` : `<div class="prog-widget-empty">No previous data</div>`;
+    ` : (lastSets.length === 0 ? `<div class="prog-widget-empty">No previous data</div>` : '');
 
     const recW = prog?.recommendation || lastW;
 
@@ -1613,13 +1701,15 @@ function renderStrengthLogger(ds, wkt) {
 
     const adjDelta = unit === 'kg' ? 2.5 : 5;
 
+    const isBarbell = BARBELL_EXERCISES.has(ex.name);
+
     const setRows = Array.from({ length: ex.sets }, (_, j) => {
       const prevSet  = lastSets[j];
       const prevChip = prevSet ? `
         <button class="last-set-chip" data-action="fill-set-last"
                 data-ex="${i}" data-set="${j}"
                 data-weight="${prevSet.weight}" data-reps="${prevSet.reps || ''}">
-          ↩&thinsp;${prevSet.weight}${prevSet.reps ? ' × ' + prevSet.reps : ''}
+          Last: ${prevSet.weight} ${unit}${prevSet.reps ? ' × ' + prevSet.reps + ' reps' : ''}
         </button>` : '';
 
       return `
@@ -1639,6 +1729,7 @@ function renderStrengthLogger(ds, wkt) {
               <button class="adj-btn" data-action="adj-weight"
                       data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
             </div>
+            ${isBarbell ? `<div class="plate-hint" id="ph-${i}-${j}"></div>` : ''}
             <div class="set-adj-row">
               <button class="adj-btn" data-action="adj-reps"
                       data-ex="${i}" data-set="${j}" data-delta="-1">−</button>
@@ -3133,6 +3224,7 @@ document.addEventListener('click', e => {
       const cur    = parseFloat(input.value) || parseFloat(input.placeholder) || 0;
       const next   = Math.max(0, cur + delta);
       input.value  = Number.isInteger(next) ? String(next) : next.toFixed(1);
+      syncPlateHint(exIdx, setIdx);
       saveActiveWkt(state.loggerDs);
       break;
     }
@@ -3156,6 +3248,7 @@ document.addEventListener('click', e => {
       for (let j = 0; j < sets; j++) {
         const input = $id(`w-${exIdx}-${j}`);
         if (input) input.value = weight;
+        syncPlateHint(exIdx, j);
       }
       saveActiveWkt(state.loggerDs);
       break;
@@ -3170,6 +3263,7 @@ document.addEventListener('click', e => {
         const rEl = $id(`r-${exIdx}-${j}`);
         if (wEl && w) wEl.value = w;
         if (rEl && reps[j]) rEl.value = reps[j];
+        syncPlateHint(exIdx, j);
       });
       saveActiveWkt(state.loggerDs);
       break;
@@ -3184,6 +3278,7 @@ document.addEventListener('click', e => {
       const rEl = $id(`r-${exIdx}-${setIdx}`);
       if (wEl && w) wEl.value = w;
       if (rEl && r) rEl.value = r;
+      syncPlateHint(exIdx, setIdx);
       saveActiveWkt(state.loggerDs);
       break;
     }
@@ -3368,6 +3463,11 @@ document.addEventListener('change', e => {
 document.addEventListener('input', e => {
   if (state.view !== 'strength-logger' || !state.loggerDs) return;
   if (!e.target.matches('.set-weight, .set-reps')) return;
+  if (e.target.matches('.set-weight')) {
+    const id    = e.target.id; // w-{ex}-{set}
+    const parts = id.split('-');
+    if (parts.length === 3) syncPlateHint(parseInt(parts[1], 10), parseInt(parts[2], 10));
+  }
   saveActiveWkt(state.loggerDs);
 });
 

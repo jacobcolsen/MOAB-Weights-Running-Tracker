@@ -2926,6 +2926,19 @@ input[type="date"]:focus { border-color: var(--accent); }
 }
 .last-set-chip:active { opacity: 0.7; }
 
+/* ── Barbell plate breakdown hint ───────────────────────── */
+.plate-hint {
+  font-size: 11px;
+  color: #555;
+  letter-spacing: 0.01em;
+  padding: 0 2px 2px;
+  font-variant-numeric: tabular-nums;
+  min-height: 0;
+}
+.plate-hint:not(:empty) {
+  padding-top: 2px;
+}
+
 /* ── Drag-to-reorder (Schedule) ─────────────────────────── */
 .is-draggable { touch-action: pan-y; }
 
