@@ -1125,6 +1125,39 @@ function importData(jsonStr) {
 //  REST TIMER
 // ============================================================
 
+// ── Notification helpers ───────────────────────────────────
+
+async function ensureNotifPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied')  return false;
+  const result = await Notification.requestPermission();
+  return result === 'granted';
+}
+
+function scheduleNotif(seconds) {
+  clearNotif();
+  if (!('serviceWorker' in navigator)) return;
+  _notifTimeout = setTimeout(async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification('Rest complete — next set!', {
+        body:     'Your rest timer just finished.',
+        icon:     './icons/icon-192.png',
+        badge:    './icons/icon-192.png',
+        vibrate:  [100, 60, 100, 60, 100],
+        tag:      'moab-rest',
+        renotify: true,
+        silent:   false,
+      });
+    } catch {}
+  }, seconds * 1000);
+}
+
+function clearNotif() {
+  if (_notifTimeout) { clearTimeout(_notifTimeout); _notifTimeout = null; }
+}
+
 // Short double-beep using the Web Audio API — works offline, no file needed
 function beepRestDone() {
   try {
@@ -1152,6 +1185,8 @@ function startRestTimer(seconds) {
   if (!strip) return;
   strip.classList.remove('timer-idle');
   renderTimerCount();
+  // Request permission then schedule the system notification
+  ensureNotifPermission().then(granted => { if (granted) scheduleNotif(seconds); });
   timerInterval = setInterval(() => {
     timerRemaining = Math.max(0, timerRemaining - 1);
     renderTimerCount();
@@ -1161,6 +1196,7 @@ function startRestTimer(seconds) {
 
 function clearRestTimer() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  clearNotif();
   timerRemaining = 0;
   const strip = $id('rest-timer');
   if (strip) strip.classList.add('timer-idle');
@@ -1231,6 +1267,7 @@ const state = {
 
 let timerInterval  = null;
 let timerRemaining = 0;
+let _notifTimeout  = null;
 
 let stopwatchInterval = null;
 let stopwatchElapsed  = 0;
@@ -3488,6 +3525,7 @@ document.addEventListener('click', e => {
       if (timerInterval) {
         timerRemaining = Math.min(timerRemaining + 30, 600);
         renderTimerCount();
+        ensureNotifPermission().then(granted => { if (granted) scheduleNotif(timerRemaining); });
       }
       break;
     }
@@ -3497,6 +3535,7 @@ document.addEventListener('click', e => {
         timerRemaining = Math.max(timerRemaining - 30, 5);
         renderTimerCount();
         if (timerRemaining <= 5) { beepRestDone(); clearRestTimer(); }
+        else ensureNotifPermission().then(granted => { if (granted) scheduleNotif(timerRemaining); });
       }
       break;
     }

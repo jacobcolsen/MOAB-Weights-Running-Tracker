@@ -2,7 +2,7 @@
 
 // Increment this version string whenever app.js, styles.css, or index.html change.
 // The old cache will be deleted automatically on the next SW activation.
-const CACHE_NAME = 'moab-v9';
+const CACHE_NAME = 'moab-v10';
 
 // App shell — must all be cached for offline to work
 const SHELL = [
@@ -40,6 +40,19 @@ self.addEventListener('activate', e => {
         keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
+  );
+});
+
+// ── Notification tap: bring app to front ──────────────────────
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url && 'focus' in c) return c.focus();
+      }
+      return self.clients.openWindow('./');
+    })
   );
 });
 
