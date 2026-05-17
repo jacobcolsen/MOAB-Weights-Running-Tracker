@@ -164,6 +164,8 @@ const PLATE_SIZES = {
   kg:  [20, 15, 10, 5, 2.5, 1.25],
 };
 
+const PLATE_BTNS = { lbs: [5, 10, 25, 45], kg: [2.5, 5, 10, 20] };
+
 function calcPlateBreakdown(totalWeight, unit) {
   const total = parseFloat(totalWeight);
   const bar   = BAR_WEIGHT[unit] || 45;
@@ -195,6 +197,18 @@ function syncPlateHint(exIdx, setIdx) {
   const wEl = $id(`w-${exIdx}-${setIdx}`);
   const w   = wEl?.value || '';
   el.textContent = formatPlateBreakdown(w, Store.getUnit());
+}
+
+function syncPlatePicker(exIdx, setIdx) {
+  const totalEl = $id(`pt-${exIdx}-${setIdx}`);
+  if (!totalEl) return;
+  const wEl  = $id(`w-${exIdx}-${setIdx}`);
+  const unit = Store.getUnit();
+  const bar  = BAR_WEIGHT[unit] || 45;
+  const w    = Math.max(bar, parseFloat(wEl?.value) || bar);
+  totalEl.textContent = `${Number.isInteger(w) ? w : w.toFixed(2).replace(/\.?0+$/, '')} ${unit}`;
+  const bdEl = $id(`pb-${exIdx}-${setIdx}`);
+  if (bdEl) bdEl.textContent = formatPlateBreakdown(w, unit);
 }
 
 // Map category string → CSS class key
@@ -1030,6 +1044,7 @@ function restoreActiveWkt(active) {
       if (rEl && s.reps)   rEl.value = s.reps;
       if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
       syncPlateHint(i, j);
+      syncPlatePicker(i, j);
     });
   });
 }
@@ -1048,6 +1063,7 @@ function restoreFromStrengthLog(log) {
       if (rEl && s.reps)   rEl.value = s.reps;
       if (s.done && row)   { row.classList.add('set-done'); if (btn) btn.textContent = '✓'; }
       syncPlateHint(i, j);
+      syncPlatePicker(i, j);
     });
   });
 }
@@ -1743,6 +1759,36 @@ function renderStrengthLogger(ds, wkt) {
           Last: ${prevSet.weight ? prevSet.weight + ' ' + unit : 'BW'}${prevSet.reps ? ' × ' + prevSet.reps + ' reps' : ''}
         </button>` : '';
 
+      const barW    = BAR_WEIGHT[unit] || 45;
+      const plateBtns = (PLATE_BTNS[unit] || PLATE_BTNS.lbs);
+      const weightField = isBarbell ? `
+        <div class="plate-picker-wrap">
+          <input type="hidden" id="w-${i}-${j}" value="${barW}">
+          <div class="plate-total-row">
+            <span class="plate-total" id="pt-${i}-${j}">${barW} ${unit}</span>
+            <span class="plate-breakdown" id="pb-${i}-${j}">${barW} ${unit} bar only</span>
+          </div>
+          <div class="plate-btns">
+            ${plateBtns.map(p => `
+              <div class="plate-btn-group">
+                <button class="plate-btn plate-minus" data-action="plate-sub"
+                        data-ex="${i}" data-set="${j}" data-plate="${p}">−</button>
+                <span class="plate-label">${p}</span>
+                <button class="plate-btn plate-plus" data-action="plate-add"
+                        data-ex="${i}" data-set="${j}" data-plate="${p}">+</button>
+              </div>`).join('')}
+          </div>
+        </div>` : `
+        <div class="set-adj-row">
+          <button class="adj-btn" data-action="adj-weight"
+                  data-ex="${i}" data-set="${j}" data-delta="-${adjDelta}">−</button>
+          <input type="number" class="set-weight" id="w-${i}-${j}"
+                 placeholder="${lastW}" inputmode="decimal" min="0">
+          <span class="set-unit">${unit}</span>
+          <button class="adj-btn" data-action="adj-weight"
+                  data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
+        </div>`;
+
       return `
         <div class="logger-set-row" id="set-${i}-${j}">
           <div class="set-meta">
@@ -1751,16 +1797,7 @@ function renderStrengthLogger(ds, wkt) {
                     data-ex="${i}" data-set="${j}" data-rest="${getExRest(ex)}">○</button>
           </div>
           <div class="set-fields">
-            <div class="set-adj-row">
-              <button class="adj-btn" data-action="adj-weight"
-                      data-ex="${i}" data-set="${j}" data-delta="-${adjDelta}">−</button>
-              <input type="number" class="set-weight" id="w-${i}-${j}"
-                     placeholder="${lastW}" inputmode="decimal" min="0">
-              <span class="set-unit">${unit}</span>
-              <button class="adj-btn" data-action="adj-weight"
-                      data-ex="${i}" data-set="${j}" data-delta="${adjDelta}">+</button>
-            </div>
-            ${isBarbell ? `<div class="plate-hint" id="ph-${i}-${j}"></div>` : ''}
+            ${weightField}
             <div class="set-adj-row">
               <button class="adj-btn" data-action="adj-reps"
                       data-ex="${i}" data-set="${j}" data-delta="-1">−</button>
@@ -3274,6 +3311,38 @@ document.addEventListener('click', e => {
       break;
     }
 
+    case 'plate-add': {
+      const exIdx  = parseInt(el.dataset.ex,  10);
+      const setIdx = parseInt(el.dataset.set, 10);
+      const plate  = parseFloat(el.dataset.plate);
+      const wEl    = $id(`w-${exIdx}-${setIdx}`);
+      if (!wEl) break;
+      const unit   = Store.getUnit();
+      const bar    = BAR_WEIGHT[unit] || 45;
+      const cur    = Math.max(bar, parseFloat(wEl.value) || bar);
+      const next   = cur + plate * 2;
+      wEl.value    = Number.isInteger(next) ? String(next) : parseFloat(next.toFixed(4)).toString();
+      syncPlatePicker(exIdx, setIdx);
+      saveActiveWkt(state.loggerDs);
+      break;
+    }
+
+    case 'plate-sub': {
+      const exIdx  = parseInt(el.dataset.ex,  10);
+      const setIdx = parseInt(el.dataset.set, 10);
+      const plate  = parseFloat(el.dataset.plate);
+      const wEl    = $id(`w-${exIdx}-${setIdx}`);
+      if (!wEl) break;
+      const unit   = Store.getUnit();
+      const bar    = BAR_WEIGHT[unit] || 45;
+      const cur    = Math.max(bar, parseFloat(wEl.value) || bar);
+      const next   = Math.max(bar, cur - plate * 2);
+      wEl.value    = Number.isInteger(next) ? String(next) : parseFloat(next.toFixed(4)).toString();
+      syncPlatePicker(exIdx, setIdx);
+      saveActiveWkt(state.loggerDs);
+      break;
+    }
+
     case 'adj-reps': {
       const exIdx  = parseInt(el.dataset.ex,  10);
       const setIdx = parseInt(el.dataset.set, 10);
@@ -3294,6 +3363,7 @@ document.addEventListener('click', e => {
         const input = $id(`w-${exIdx}-${j}`);
         if (input) input.value = weight;
         syncPlateHint(exIdx, j);
+        syncPlatePicker(exIdx, j);
       }
       saveActiveWkt(state.loggerDs);
       break;
@@ -3309,6 +3379,7 @@ document.addEventListener('click', e => {
         if (wEl && w) wEl.value = w;
         if (rEl && reps[j]) rEl.value = reps[j];
         syncPlateHint(exIdx, j);
+        syncPlatePicker(exIdx, j);
       });
       saveActiveWkt(state.loggerDs);
       break;
@@ -3324,6 +3395,7 @@ document.addEventListener('click', e => {
       if (wEl && w) wEl.value = w;
       if (rEl && r) rEl.value = r;
       syncPlateHint(exIdx, setIdx);
+      syncPlatePicker(exIdx, setIdx);
       saveActiveWkt(state.loggerDs);
       break;
     }
