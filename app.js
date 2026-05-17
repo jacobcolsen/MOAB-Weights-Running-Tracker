@@ -1223,6 +1223,8 @@ const state = {
   resetConfirm:  false,
   loggerDs:      null,
   importResult:  null,   // null | number (>=0 ok, -1 error)
+  schedDayDs:    null,
+  backTo:        null,   // 'schedule' | null
 };
 
 let timerInterval  = null;
@@ -2176,6 +2178,46 @@ function renderSchedule() {
       <p class="text-xs text-muted text-center mt-16" style="line-height:1.6;">
         Drag <span style="color:#555">⠿</span> to reorder planned workouts.
       </p>
+    </div>
+  `);
+}
+
+// ============================================================
+//  VIEW: SCHEDULE DAY DETAIL
+// ============================================================
+
+function renderSchedDay(ds) {
+  const d      = fromDateStr(ds);
+  const wkt    = Store.getWorkoutInfo(ds);
+  const log    = Store.getDayLog(ds);
+  const status = log?.status || 'planned';
+
+  state.view       = 'sched-day';
+  state.schedDayDs = ds;
+  state.backTo     = 'schedule';
+
+  setTitle(wkt.name);
+  showBack(true);
+  showNav(false);
+
+  const dayLabel = `${DAYS_LONG[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+
+  let body;
+  if (wkt.key === 'rest') {
+    body = buildRestDay(d);
+  } else if (status === 'completed') {
+    body = buildDoneState(ds, wkt, log);
+  } else {
+    body = buildActiveWorkout(ds, wkt);
+  }
+
+  setView(`
+    <div class="pad pb-safe fade-up">
+      <div class="sched-day-header">
+        <div class="sched-day-date">${dayLabel}</div>
+        <div class="sched-day-sub">${wkt.sub}</div>
+      </div>
+      ${body}
     </div>
   `);
 }
@@ -3172,6 +3214,7 @@ function navigate(view) {
   state.view         = view;
   state.loggerDs     = null;
   state.resetConfirm = false;
+  state.backTo       = null;
   clearRestTimer();
   clearDurationTimer();
   resetStopwatch();
@@ -3182,6 +3225,7 @@ function navigate(view) {
     case 'workouts': renderWorkouts(); break;
     case 'progress': renderProgress(); break;
     case 'settings': renderSettings(); break;
+    case 'sched-day': if (state.schedDayDs) renderSchedDay(state.schedDayDs); break;
   }
 }
 
@@ -3198,6 +3242,12 @@ document.addEventListener('click', e => {
   // Nav tabs use data-view, not data-action — must be checked before the action guard below
   const navBtn = e.target.closest('.nav-btn');
   if (navBtn) { navigate(navBtn.dataset.view); return; }
+
+  // Schedule row tap → open workout detail (exclude drag handle)
+  if (!e.target.closest('[data-action]') && !e.target.closest('.sched-drag-handle')) {
+    const schedRow = e.target.closest('.sched-row');
+    if (schedRow?.dataset.date) { renderSchedDay(schedRow.dataset.date); return; }
+  }
 
   const el = e.target.closest('[data-action]');
   if (!el) return;
@@ -3273,7 +3323,12 @@ document.addEventListener('click', e => {
     // ── Back button ────────────────────────────────────────
 
     case 'back': {
-      navigate('today');
+      if (state.backTo === 'schedule') {
+        state.backTo = null;
+        renderSchedule();
+      } else {
+        navigate('today');
+      }
       break;
     }
 

@@ -3044,6 +3044,33 @@ input[type="date"]:focus { border-color: var(--accent); }
 .plate-plus:active { background: rgba(251,146,60,.18); }
 .plate-minus { color: #888; }
 
+/* ── Schedule day detail header ─────────────────────────── */
+.sched-day-header {
+  text-align: center;
+  padding: 8px 0 20px;
+}
+.sched-day-date {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e0e0e0;
+  letter-spacing: 0.01em;
+  margin-bottom: 4px;
+}
+.sched-day-sub {
+  font-size: 12px;
+  color: #555;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Tap affordance on schedule rows */
+.sched-row {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .12s;
+}
+.sched-row:active { background: rgba(255,255,255,.04); }
+
 /* ── Drag-to-reorder (Schedule) ─────────────────────────── */
 .is-draggable { touch-action: pan-y; }
 

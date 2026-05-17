@@ -2,7 +2,7 @@
 
 // Increment this version string whenever app.js, styles.css, or index.html change.
 // The old cache will be deleted automatically on the next SW activation.
-const CACHE_NAME = 'moab-v5';
+const CACHE_NAME = 'moab-v6';
 
 // App shell — must all be cached for offline to work
 const SHELL = [
