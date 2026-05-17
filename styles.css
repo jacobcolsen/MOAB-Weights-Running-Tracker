@@ -1201,12 +1201,9 @@ input[type="date"]:focus { border-color: var(--accent); }
   top: 0;
   z-index: 10;
   background: #111;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid #1e1e1e;
   padding: 10px 20px;
-  transition: opacity 0.2s, transform 0.2s;
-}
-.rest-timer.timer-hidden {
-  display: none;
+  transition: border-color 0.2s;
 }
 .rest-timer-inner {
   display: flex;
@@ -1227,7 +1224,44 @@ input[type="date"]:focus { border-color: var(--accent); }
   color: var(--accent);
   font-feature-settings: 'tnum';
   flex: 1;
+  transition: color 0.2s;
 }
+
+/* Idle state — show time + Start button, hide countdown controls */
+.rest-timer.timer-idle .rest-timer-count { color: #444; }
+.rest-timer.timer-idle .rest-timer-adj  { display: none; }
+.rest-timer.timer-idle .rest-timer-skip { display: none; }
+
+/* Active state — hide Start button, show countdown controls */
+.rest-timer:not(.timer-idle) .rest-timer-start { display: none; }
+.rest-timer:not(.timer-idle) .rest-timer-count  { color: var(--accent); }
+
+.rest-timer-start {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(251,146,60,.12);
+  border: 1px solid rgba(251,146,60,.3);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+.rest-timer-start:active { background: rgba(251,146,60,.25); }
+.rest-timer-adj {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: 4px 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+}
+.rest-timer-adj:active { background: rgba(255,255,255,.14); color: #ccc; }
 .rest-timer-skip {
   font-size: 13px;
   font-weight: 600;

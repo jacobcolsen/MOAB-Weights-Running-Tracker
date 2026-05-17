@@ -494,7 +494,7 @@ const Store = {
   setGoal(v)      { this._set(this.KEYS.GOAL, v); },
 
   // ---- Rest timer preferences ----
-  getRestTimes()  { return this._get(this.KEYS.REST_TIMES) || { compound: 180, accessory: 90 }; },
+  getRestTimes()  { return this._get(this.KEYS.REST_TIMES) || { compound: 60, accessory: 60 }; },
   setRestTimes(v) { this._set(this.KEYS.REST_TIMES, v); },
 
   // ---- Custom default schedule ----
@@ -1085,7 +1085,7 @@ function applyExerciseSubs(exercises) {
 // Get effective rest duration for an exercise, respecting user preferences
 function getExRest(ex) {
   const rt = Store.getRestTimes();
-  return ex.rest >= 180 ? (rt.compound || 180) : (rt.accessory || 90);
+  return ex.rest >= 180 ? (rt.compound || 60) : (rt.accessory || 60);
 }
 
 // Export all localStorage data as a timestamped JSON download
@@ -1146,11 +1146,11 @@ function beepRestDone() {
 }
 
 function startRestTimer(seconds) {
-  clearRestTimer();
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   timerRemaining = seconds;
   const strip = $id('rest-timer');
   if (!strip) return;
-  strip.classList.remove('timer-hidden');
+  strip.classList.remove('timer-idle');
   renderTimerCount();
   timerInterval = setInterval(() => {
     timerRemaining = Math.max(0, timerRemaining - 1);
@@ -1163,7 +1163,9 @@ function clearRestTimer() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   timerRemaining = 0;
   const strip = $id('rest-timer');
-  if (strip) strip.classList.add('timer-hidden');
+  if (strip) strip.classList.add('timer-idle');
+  const el = $id('timer-count');
+  if (el) el.textContent = formatMmSs(Store.getRestTimes().accessory || 60);
 }
 
 function renderTimerCount() {
@@ -1844,10 +1846,13 @@ function renderStrengthLogger(ds, wkt) {
         </span>
       </div>
       ${isBW ? `<div class="bw-logger-banner">🏠 Home / Bodyweight Mode</div>` : ''}
-      <div class="rest-timer timer-hidden" id="rest-timer">
+      <div class="rest-timer timer-idle" id="rest-timer">
         <div class="rest-timer-inner">
           <span class="rest-timer-label">Rest</span>
-          <span class="rest-timer-count" id="timer-count">3:00</span>
+          <button class="rest-timer-adj btn-unstyled" data-action="timer-sub">−30</button>
+          <span class="rest-timer-count" id="timer-count">${formatMmSs(Store.getRestTimes().accessory || 60)}</span>
+          <button class="rest-timer-adj btn-unstyled" data-action="timer-add">+30</button>
+          <button class="rest-timer-start btn-unstyled" data-action="timer-start">Start</button>
           <button class="rest-timer-skip btn-unstyled" data-action="skip-timer">Skip</button>
         </div>
       </div>
@@ -3096,11 +3101,11 @@ function renderSettings() {
         <div class="settings-group-label">Rest Timers</div>
         <div class="settings-row">
           <span class="settings-row-label">Compound lifts</span>
-          ${restSelect('s-rest-compound', rt.compound || 180)}
+          ${restSelect('s-rest-compound', rt.compound || 60)}
         </div>
         <div class="settings-row">
           <span class="settings-row-label">Accessory lifts</span>
-          ${restSelect('s-rest-accessory', rt.accessory || 90)}
+          ${restSelect('s-rest-accessory', rt.accessory || 60)}
         </div>
         <button class="btn btn-secondary btn-sm mt-8" data-action="save-rest-times">Save Rest Times</button>
       </div>
@@ -3473,6 +3478,29 @@ document.addEventListener('click', e => {
       break;
     }
 
+    case 'timer-start': {
+      const rt = Store.getRestTimes();
+      startRestTimer(rt.accessory || 60);
+      break;
+    }
+
+    case 'timer-add': {
+      if (timerInterval) {
+        timerRemaining = Math.min(timerRemaining + 30, 600);
+        renderTimerCount();
+      }
+      break;
+    }
+
+    case 'timer-sub': {
+      if (timerInterval) {
+        timerRemaining = Math.max(timerRemaining - 30, 5);
+        renderTimerCount();
+        if (timerRemaining <= 5) { beepRestDone(); clearRestTimer(); }
+      }
+      break;
+    }
+
     // ── Run log ────────────────────────────────────────────
 
     case 'set-effort': {
@@ -3517,8 +3545,8 @@ document.addEventListener('click', e => {
     }
 
     case 'save-rest-times': {
-      const compound  = parseInt($id('s-rest-compound')?.value,  10) || 180;
-      const accessory = parseInt($id('s-rest-accessory')?.value, 10) || 90;
+      const compound  = parseInt($id('s-rest-compound')?.value,  10) || 60;
+      const accessory = parseInt($id('s-rest-accessory')?.value, 10) || 60;
       Store.setRestTimes({ compound, accessory });
       renderSettings();
       break;
